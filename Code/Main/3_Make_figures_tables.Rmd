@@ -1,0 +1,2720 @@
+---
+title: "3_Make_figures_tables"
+author: "Jaeseok Hwang"
+date: "`r Sys.Date()`"
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+---
+
+
+## Knitr option
+
+```{r, cache = F, echo = F, results = "hide"}
+#####
+
+library(knitr)
+
+knitr::opts_chunk$set(
+  cache = FALSE,
+  echo = FALSE,
+  warning = FALSE,
+  cache.lazy = FALSE,
+  fig.retina = 6,
+  fig.height = 9,
+  fig.width = 9,
+  message = FALSE,
+  error = TRUE
+)
+
+options(knitr.duplicate.label = "allow")
+
+```
+
+
+#### Packages 
+
+```{r pacakages, cache = FALSE, results = "hide"}
+
+library(here)
+library(rmarkdown) # for rmarkdown options
+library(bookdown) # for bookdown options
+library(knitr) # for knitr options
+
+library(sf) # for spatial data
+
+library(data.table) # for data manipulation
+library(tidyverse) # for data manipulation
+library(dplyr) # for data manipulation
+library(lubridate) # for date manipulation
+
+library(tmap) # for mapping
+library(ggplot2) # for plotting
+library(kableExtra) # for table formatting
+library(webshot) # for converting HTML to PNG
+library(patchwork)
+library(flextable)
+
+```
+
+### Read sources and load processed and analysis data
+
+```{r source, echo = F, results = "hide"}
+
+# Read functions for data processing 
+source(here("Code","Main","0_Set_up_preparation.R"))
+source(here("Code","Functions","functions_for_table_figure.R"))
+
+# 101 field data
+info_tb_list <-readRDS(here("Data", "Processed", "Analysis_results", "info_tb_list.rds"))
+
+# Convert the list to a single data.table and remove the input_type and unit columns
+
+info_tb_101 <- bind_rows(info_tb_list) %>%
+                dplyr::select(-input_type, -unit)
+
+
+```
+
+###### CONTENTS ######
+
+### Tables ###
+
+# table1  - Data summary by year (2016 to 2023) 
+# [summary_flex_tab1] / [table1_dat_summary.png]
+
+# table2  - Analysis results table By the response type and seeding status (SQSR-EOSR) 
+# [results_flex_tab2] / [table2_results_summary.png]
+
+# table3 - Discussion Table 
+# [on-going]
+# [What happens to the farmer's expected scenario in terms of profit, and how the problem going in the bad weather cases]
+
+### Figures ###
+
+# figure1  - Net revenue after seed cost figure (1996 to 2023)
+# [rev_seed_comb] / [fig1_rev_after_seed.png]
+
+# figure2 - trial_design sampple figure  
+# [td_figure] / [fig2_trial_design_sample.png]
+
+# figure3 - EOSR ~ Precipitation and GDD ( In-season & 30 year Avg)
+# [on-going]
+
+# figure4 - Estimated Profit and Yield response by type (A2,B2,C)
+# [on-going]
+
+# figure5 - Dicussion Figure 
+# [on-going]
+
+################################
+######### Tables ###############
+################################
+
+
+## Table1 Data summary by year (2016 to 2023)
+# [summary_flex_tab1] / [table1_dat_summary.png]
+
+```{r tables data table1, cache = T, results = "hide"}
+
+# Table 1 data summary table 
+
+info_tb_bind <- list()
+
+# Loop through each year from 2016 to 2023
+for (i in 1:8 ) {
+  # Filter info_tb_102 for the current year
+  info_tb_year <- info_tb_101[year == i+2015] 
+  
+  # Generate the file paths based on ffy for the current year
+  all_ready_file_paths <- paste0(here("Data", "processed", "Analysis_ready"), "/", info_tb_year$ffy_id, "_merged_data.rds")
+  
+  # Read the RDS files for the current year
+  comb_sf_list <- lapply(all_ready_file_paths, readRDS)
+
+  mean_y_comb <- lapply(comb_sf_list, function(x) {
+  mean(st_drop_geometry(x)$yield, na.rm = TRUE)
+})
+ 
+  info_tb_year$avg_yield <-  data.frame(mean_yield = unlist(mean_y_comb))
+
+  info_tb_bind[[i]] <- info_tb_year
+
+}
+
+# data table that contains all the farm and experimental info by year 
+info_tb_binded  <- bind_rows(info_tb_bind)
+
+# Calculate mean, sd (with NA removal for usdsr), and field count by year
+summary_table1 <- info_tb_binded[, .(
+  field_count = .N , # Count the number of rows for each year
+  avg_yield = sprintf("%.1f\n(%.1f)", round(mean(avg_yield), 1), round(sd(avg_yield), 1)),
+  sqsr = sprintf("%.1f\n(%.1f)", round(mean(sqsr), 1), round(sd(sqsr), 1)),
+  usdsr = sprintf("%.1f\n(%.1f)", round(mean(usdsr, na.rm = TRUE), 1), round(sd(usdsr, na.rm = TRUE), 1)),
+  prcp_t = sprintf("%.1f\n(%.1f)", round(mean(prcp_t), 1), round(sd(prcp_t), 1)),
+  gdd_t = sprintf("%.1f\n(%.1f)", round(mean(gdd_t), 1), round(sd(gdd_t), 1)),
+  prcp_30 = sprintf("%.1f\n(%.1f)", round(mean(prcp_30), 1), round(sd(prcp_30), 1)),
+  gdd_30 = sprintf("%.1f\n(%.1f)", round(mean(gdd_30), 1), round(sd(gdd_30), 1))
+), by = year]
+
+# Convert to a flextable for a formatted summary
+summary_flex_tab1 <- flextable(summary_table1) %>%
+  set_header_labels(
+    field_count = "Field\nCount",
+    year = "Year", 
+    avg_yield = "Mean\nYield\n(bu/ac)",
+    sqsr = "SQSR",
+    usdsr = "USDA\nSR", 
+    prcp_t = "Precipitation\n(In-Season)",
+    gdd_t = "GDD\n(In-Season)",
+    prcp_30 = "Precipitation\n(30Year)",
+    gdd_30 = "GDD\n(30Year)"
+  ) %>%
+  align(align = "center", part = "all") %>%  # Center-align headers and body content
+  autofit() %>%
+  set_table_properties(layout = "autofit")
+
+# Print the flextable  (TABLE1)
+summary_flex_tab1
+
+# Save the flextable as an HTML file
+save_as_html(summary_flex_tab1, path = here("Results","Tables","table1_dat_summary.html"))
+
+# Convert the HTML to a PNG image
+webshot(here("Results","Tables","table1_dat_summary.html"), 
+        file = here("Results","Tables","table1_dat_summary.png"),
+        zoom = 2)  # Adjust zoom if you need higher resoluti
+
+```
+
+
+## Table2 ( Results table By Response type and estimated profit ) 
+# [results_flex_tab2] / [table2_results_summary.png]
+
+```{r tables result table2 by response type a to d , cache = T, results = "hide"}
+
+# Step 1: Rename columns first
+info_tb_binded <- info_tb_binded[, `:=`(
+  eosr = esor,
+  eosr_y = esor_y,
+  eosr_p = esor_p
+)]
+
+# Step 2: Calculate the new different of seeding rate
+# yield and profit by SQSR - EOSR 
+
+info_tb_binded <- info_tb_binded[, `:=`(
+  dif_s = sqsr - eosr,
+  dif_y = sqsr_y - eosr_y,
+  dif_p = sqsr_p - eosr_p
+)]
+
+# Step 3: Calculate the quadratic fit and yield maximizing seeding rate
+# for each field
+for(i in 1:length(info_tb_binded$ffy_id)){
+
+  eval_s <-readRDS(here("Data", "processed", "Analysis_results",paste0(info_tb_binded$ffy_id[i],"_eval_tb.rds")))
+
+    # Apply quadratic fit to each element in eval_s using map
+    quad_fit = lm(yield_hat ~ s_rate + I(s_rate^2), data = eval_s)
+    
+    # Check the coefficients of the quadratic fit
+    coef_2nd <- quad_fit$coef[3] 
+
+    # Find the yield maximizing seeding rate
+    yield_max_sr = eval_s[which.max(yield_hat), s_rate]
+    
+    info_tb_binded <- info_tb_binded[i, `:=`(
+      quad_fit = coef_2nd,
+      ymsr =  yield_max_sr
+      )] 
+
+}
+# Step 4: Generate response type variable based on the conditions
+
+info_tb_binded <-info_tb_binded[, resp_type := fcase(
+  dif_s < 0 & quad_fit < 0 & ymsr == eosr, "A1",  # under_seed & corner sol
+  dif_s < 0 & quad_fit < 0 & ymsr != eosr, "A2",
+  dif_s > 0 & quad_fit < 0 & ymsr == eosr, "B1",  # over_seed & corner sol
+  dif_s > 0 & quad_fit < 0 & ymsr != eosr, "B2",  # over_seed & corner sol
+  quad_fit > 0, "C",
+  default = NA_character_  # Default value if no conditions match
+)]
+
+info_tb_binded <- info_tb_binded[!is.na(resp_type)]
+info_tb_binded[, resp_type := factor(resp_type, levels = c("A1", "A2", "B1", "B2", "C"))]
+
+# Make results table by response type
+
+result_table2 <- info_tb_tab2[, .(
+  field_count = .N,  # Count the number of rows for each resp_type
+  dif_s = sprintf("%.1f\n(%.1f)", round(mean(dif_s), 1), round(sd(dif_s), 1)),
+  dif_y = sprintf("%.1f\n(%.1f)", round(mean(dif_y), 1), round(sd(dif_y), 1)),
+  dif_p = sprintf("%.1f\n(%.1f)", round(mean(dif_p), 1), round(sd(dif_p), 1)),
+  prcp_t = sprintf("%.1f\n(%.1f)", round(mean(prcp_t), 1), round(sd(prcp_t), 1)),
+  gdd_t = sprintf("%.1f\n(%.1f)", round(mean(gdd_t), 1), round(sd(gdd_t), 1)),
+  prcp_30 = sprintf("%.1f\n(%.1f)", round(mean(prcp_30), 1), round(sd(prcp_30), 1)),
+  gdd_30 = sprintf("%.1f\n(%.1f)", round(mean(gdd_30), 1), round(sd(gdd_30), 1))
+), by = resp_type]
+
+setorder(result_table2, resp_type)
+
+# Convert to a flextable for a formatted summary
+result_flex_tab2 <- flextable(result_table2) %>%
+  set_header_labels(
+    field_count = "Field\nCount",
+    dif_s = "Differences in \n Seeding Rate\n(K/ac)",
+    dif_y = "Differences in \n Estimated Yield \n (bu/ac)",
+    dif_p = "Differences in \n Estimated Profit \n ($/ac)",
+    prcp_t = "Precipitation\n(In-Season)",
+    gdd_t = "GDD\n(In-Season)",
+    prcp_30 = "Precipitation\n(30 Year)",
+    gdd_30 = "GDD\n(30 Year)"
+  ) %>%
+  align(align = "center", part = "all") %>%  # Center-align headers and body content
+  autofit() %>%
+  set_table_properties(layout = "autofit")
+
+# Print the flextable 
+result_flex_tab2
+
+# Save the flextable as an HTML file
+save_as_html(result_flex_tab2, path = here("Results","Tables","table2_results_summary.html"))
+
+# Convert the HTML to a PNG image
+webshot(here("Results","Tables","table2_results_summary.html"), 
+        file = here("Results","Tables","table2_results_summary.png"),
+        zoom = 2)  # Adjust zoom if you need higher resoluti
+
+
+```
+
+
+
+##################################
+############ Figures #############
+##################################
+
+## Figure 1 ( Net revenue after seed cost figure 1996 to 2023)
+# [rev_seed_comb] / [fig1_rev_after_seed.png]
+
+```{r figure1 net revenue after seed cost, cache = T, results = "hide"}
+
+corn_ers <-read.csv(here("Data","Raw","corn_cost_return.csv"),header = T)
+ppi_dat <-read.csv(here("Data","Raw","ppi_corn_annual.csv"),header = T)
+
+# Assuming ppi_dat is your original dataset with "DATE" and "WPU0121" columns
+# Convert DATE to Date format
+ppi_dat$DATE <- as.Date(ppi_dat$DATE)
+# Extract year from DATE
+ppi_dat <- ppi_dat %>%
+  mutate(year = lubridate::year(DATE))
+# Calculate annual average of WPU0121
+ppi_annual <- ppi_dat %>%
+  group_by(year) %>%
+  summarise(wpu_annual = mean(WPU01220205, na.rm = TRUE))
+
+## Set 1996 ppi as basic
+wpu_1996 <- ppi_annual %>% filter(year == 1996) %>% pull(wpu_annual)
+
+###
+corn_sel <- corn_ers %>% 
+           dplyr::select('Category','Item','Units','Region','Year','Value') %>%
+           filter(Item %in% c("Primary product, grain", "Seed","Fertilizer  ","Chemicals",
+                              "Total, operating costs","Yield","Price"))
+
+###
+corn_sel <- corn_sel %>% filter(Region %in% c("U.S. total","Heartland" , "Northern Great Plains",
+                                              "Prairie Gateway" ))
+
+#### #########################
+#### 
+rev_seed_dat <- corn_sel %>%
+  filter(Item %in% c("Primary product, grain", "Yield","Price", "Seed","Total, operating costs"))
+
+# Define custom breaks for the x-axis
+custom_breaks <- seq(1996, 2024, by = 4)
+#### 
+ppi_annual <- ppi_annual %>% filter(year %in% 1996:2023)
+
+
+
+# Define common filter criteria
+regions <- c("U.S. total", "Heartland", "Northern Great Plains")
+items <- c("Primary product, grain", "Seed")
+
+# Create a function to simplify data preparation
+prepare_data <- function(data, adjust_ppi = FALSE) {
+  data %>%
+    filter(Region %in% regions, Item %in% if (adjust_ppi) c(items, "Yield") else items) %>%
+    left_join(ppi_annual, by = c("Year" = "year")) %>%
+    dplyr::select(Year, Region, Item, Value, wpu_annual) %>%
+    spread(Item, Value) %>%
+    mutate(
+      rev_minus_seed = if (adjust_ppi) {
+        wpu_normalized <- wpu_annual / wpu_1996
+        (`Primary product, grain` / wpu_normalized) - (Seed / wpu_normalized)
+      } else {
+        `Primary product, grain` - Seed
+      }
+    ) %>%
+    drop_na()
+}
+
+# Prepare data for the two plots
+plot1_wide_no_adjust <- prepare_data(rev_seed_dat, adjust_ppi = FALSE)
+plot1_wide_adjust <- prepare_data(rev_seed_dat, adjust_ppi = TRUE)
+
+# Create a function to simplify the ggplot generation
+create_plot <- function(data, y_label = NULL) {
+  ggplot(data, aes(x = Year, y = rev_minus_seed, color = Region, group = Region)) +
+    geom_line() +
+    scale_color_manual(values = c("Heartland" = "orange", 
+                                  "U.S. total" = "brown",
+                                  "Northern Great Plains" = "purple")) +
+    ylim(100, 1250) +
+    labs(
+      y = y_label,
+      color = "Region"
+    ) +
+    scale_x_continuous(breaks = seq(1996, 2024, by = 4), limits = c(1996, 2024)) +
+    theme_minimal() +
+    theme(legend.position = if (!is.null(y_label)) c(0.9, -0.15) else "none",
+          legend.direction = "horizontal")
+}
+
+# Generate the two plots
+rev_minus_seed_no_adjust <- create_plot(plot1_wide_no_adjust, y_label = "Revenue - Seed Cost ($/ac)")
+rev_minus_seed_adjust <- create_plot(plot1_wide_adjust)
+
+# Combine the plots
+rev_seed_comb <- rev_minus_seed_no_adjust + rev_minus_seed_adjust +
+  plot_layout(ncol = 2) +
+  plot_annotation(
+    title = "Net Revenue After Seed Cost",
+    subtitle = "Left: Non-Adjusted | Right: PPI Adjusted",
+    theme = theme(
+      plot.title = element_text(hjust = 0.5),
+      plot.subtitle = element_text(hjust = 0.5),
+      plot.margin = margin(t = 10, r = 10, b = 40, l = 10)
+    )
+  )
+
+ggsave(here("Results","Figures","fig1_rev_after_seed.png"), plot = rev_seed_comb , width = 8, height = 6)
+
+
+
+```
+
+
+## Figure2 (Experimental design Sample)
+# [td_figure] / [fig2_trial_design_sample.png]
+
+
+```{r figure2 experimental design, cache = T, results = "hide"}
+
+ td_sample <-st_read(here("Data","Raw","trial-design-sample.shp"))
+
+# Mutating the trial_rate based on tgt_seed values
+td_sample <- td_sample %>%
+  mutate(trial_rate = case_when(
+    tgt_seed == 130 ~ 32,
+    tgt_seed == 145 ~ 30,
+    tgt_seed == 110 ~ 28,
+    tgt_seed == 90  ~ 34,
+    tgt_seed == 160 ~ 36,
+    TRUE ~ NA_real_  # If tgt_seed doesn't match any of the above values, assign NA
+  )) %>% dplyr::select(trial_rate)
+
+random_colors <- c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#FF7F00")  # Example colors
+
+td_figure  <- ggplot(td_sample) +
+  geom_sf(aes(fill = factor(trial_rate))) +  # Convert trial_rate to a factor for discrete values
+  scale_fill_manual(values = random_colors, name = "Trial Seed Rate (K/ac)") +  # Random color scale with custom legend title
+  theme_minimal() +
+  coord_sf(expand = FALSE) +  # Prevents automatic expansion of the plot
+  theme(axis.title = element_blank(),   # Remove axis titles
+        axis.text = element_blank(),    # Remove axis text
+        axis.ticks = element_blank())   # Remove axis ticks
+
+# Save the plot
+ggsave(here("Results","Figures","fig2_trial_design_sample.png"), plot = td_figure, width = 6, height = 4)
+```
+
+
+###################################################
+###################################################
+Set types of response and estimate profit
+###################################################
+
+###################################################
+###################################################
+Result Figure1  (Opt vs Stq at a given climate ) 
+###################################################
+
+```{r Result Figure1 Opt vs Stq at a given climate, cache = T, results = "hide"}
+
+########################
+
+x_min_prec <- min(est_tab2$prcp_tot, na.rm = TRUE)
+x_max_prec <- max(est_tab2$prcp_tot, na.rm = TRUE)
+y_min_prec <- min(est_tab2$opt_s, est_tab2$stq_s)
+y_max_prec <- max(est_tab2$opt_s, est_tab2$stq_s)
+
+opt_stq_prec <- ggplot(est_tab2) +
+  geom_point(aes(x = prcp_tot, y = opt_s, color = "EOSR")) +
+  geom_point(aes(x = prcp_tot, y = stq_s, color = "SQSR")) +
+  scale_color_manual(
+    name = "Type",
+    values = c("EOSR" = "red", "SQSR" = "blue"),
+    labels = c("EOSR", "SQSR")
+  ) +
+   geom_segment(aes(x = x_min_prec, y = y_min_prec, xend = x_max_prec, yend = y_max_prec), color = "black", size = 0.2) +  # Add diagonal line
+labs(  y = "Seeding Rate",
+       x = "Precipitation (inch)") +
+  theme(legend.position="none",
+    axis.text = element_text(size = 14),  # Increase axis text size
+    axis.title = element_text(size = 16)  # Increase axis title size
+   # plot.title = element_text(size = 18)   # Increase plot title size (if applicable)
+  )
+
+x_min_gdd <- min(est_tab2$gdd_tot, na.rm = TRUE)
+x_max_gdd <- max(est_tab2$gdd_tot, na.rm = TRUE)
+y_min_gdd <- min(est_tab2$opt_s, est_tab2$stq_s)
+y_max_gdd <- max(est_tab2$opt_s, est_tab2$stq_s)
+
+opt_stq_gdd <- ggplot(est_tab2) +
+  geom_point(aes(x = gdd_tot, y = opt_s, color = "EOSR")) +
+  geom_point(aes(x = gdd_tot, y = stq_s, color = "SQSR")) +
+  scale_color_manual(
+    name = "Seeding Type",
+    values = c("EOSR" = "red", "SQSR" = "blue"),
+    labels = c("EOSR", "SQSR")
+  ) +
+   geom_segment(aes(x = x_min_gdd, y = y_min_gdd, xend = x_max_gdd, yend = y_max_gdd), color = "black", size = 0.2) +  # Add diagonal line
+labs(  y = NULL,
+       x = "Accumulated GDD") +
+  theme(
+legend.position = c(0.1,-0.3),
+legend.direction = "horizontal",
+legend.title = element_text(size = 14),  # Increase legend title size
+    legend.text = element_text(size = 14),   # Increase legend text size
+     axis.title.y = element_blank(),
+ axis.text = element_text(size = 14),  # Increase axis text size
+ axis.title.x = element_text(size = 16),  # Increase x-axis title size
+ plot.margin = margin(5, 5, 60, 5) 
+   )
+
+
+opt_stq_weather <- (opt_stq_prec | opt_stq_gdd) 
+
+opt_stq_weather <- (opt_stq_prec | opt_stq_gdd) + # Collect legends from both plots
+  theme(
+    plot.margin = margin(10, 10, 40, 10),
+    legend.position = c(-0.2,-0.3)
+  )
+
+
+ggsave(here("Figure","opt_stq_weather.png"), plot = opt_stq_weather , width = 16, height = 10, units = "in")
+
+```
+
+
+## Results Figure3 (Estimated Profit and Yield response by type)) 
+
+```{r  Type A2 figure profit and yield response , cache = T, results = "hide"}
+
+###########################################
+## Comparison of profit and yield response vertically
+###############
+
+
+### TYPE A representative 
+
+info_tb_binded
+eval_s
+
+
+est_type_a2 <-est_type_all %>% filter(resp_type=="A2")
+
+est_type_a2$ffy
+
+est_dat_a <- est_type_a2 %>% 
+  filter(ffy == "FriestDennis_Dubouis_2023") 
+
+opt_s_ffy_a <- est_dat_a$opt_s
+stq_s_ffy_a <- est_dat_a$stq_s
+
+   est_pp_a <-est_dat_a %>%
+  unnest(eval_s) %>%  # Unnest if eval_s is a list-column
+  mutate(yield_hat = round(yield_hat, 1),
+         profit_hat = round((yield_hat * 5.5 - input_rate * 3.81), 1)) %>%
+     dplyr::select(input_rate,yield_hat,profit_hat)
+
+# Find two points closest to stq_s and opt_s
+stq_s_point_a <-    est_pp_a %>%
+  slice(which.min(abs(input_rate - stq_s_ffy_a)))
+
+max_y_point_a <-  est_pp_a %>%
+  slice(which.max(yield_hat))
+
+opt_s_point_a <-  est_pp_a %>%
+  slice(which.max(profit_hat))
+
+
+# Define y-axis limits to avoid vertical lines affecting the smooth plot
+# Define y-axis limits to avoid vertical lines affecting the smooth plot
+
+y_limits_profit_a <- c(min(est_pp_a$profit_hat, na.rm = TRUE) * 0.98, max(est_pp_a$profit_hat, na.rm = TRUE) * 1.02)  # Adjust as needed
+
+# Create data frame for vertical lines with labels and colors
+vline_profit_a <- tibble(
+  x = c(stq_s_point_a$input_rate, opt_s_point_a$input_rate, max_y_point_a$input_rate),
+  y = c(stq_s_point_a$profit_hat, opt_s_point_a$profit_hat, max_y_point_a$profit_hat),
+  color = c("blue", "red", "black"),
+  label = c("SQSR", "EOSR", "YMSR")
+  #,type = c("dashed", "dashed", "dashed")  # Line type for visual purpose
+)
+
+# Create x-axis labels data frame
+x_labels_a <- tibble(
+  input_rate = c(stq_s_point_a$input_rate, opt_s_point_a$input_rate, max_y_point_a$input_rate),
+  label = as.character(c(stq_s_point_a$input_rate, opt_s_point_a$input_rate, max_y_point_a$input_rate)),
+  color = c("blue", "red", "black")
+)
+
+diff_profit_stq_eosr_a <- opt_s_point_a$profit_hat - stq_s_point_a$profit_hat
+diff_profit_max_eosr_a <- opt_s_point_a$profit_hat - max_y_point_a$profit_hat
+
+# Create annotations data frame with labels directly on the points
+annotations_profit_a <- bind_rows(
+  stq_s_point_a %>%
+    mutate(
+      abrv = paste("SQSR", "\n","(", as.character(round(input_rate,1)), ")"),
+      label = "SQSR",
+      color = "blue",
+      diff_label = sprintf("-$%.1f", diff_profit_stq_eosr_a)
+    ),
+  opt_s_point_a %>%
+    mutate(
+      abrv = paste("EOSR", "\n", "(", as.character(round(input_rate,1)), ")"),
+      label = "EOSR",
+      color = "red",
+      diff_label = NA  # No difference label for EOSR
+    ),
+  max_y_point_a %>%
+    mutate(
+      abrv = paste("YMSR", "\n", "(", as.character(round(input_rate,1)), ")"),
+      label = "YMSR",
+      color = "black",
+      diff_label = sprintf("-$%.1f", diff_profit_max_eosr_a)
+    )
+)
+
+# Create the plot
+plot_profit_strong_inc <- ggplot(est_pp_a, aes(x = input_rate, y = profit_hat)) +
+  geom_smooth(method = "loess", color = 'yellow') +
+  geom_point(data = stq_s_point_a, aes(x = input_rate, y = profit_hat), color = "blue", size = 1.5) +
+  geom_point(data = opt_s_point_a, aes(x = input_rate, y = profit_hat), color = "red", size = 1.5) +
+  geom_point(data = max_y_point_a, aes(x = input_rate, y = profit_hat), color = "black", size = 1.5) +
+  
+  # Draw vertical lines with dashed linetype and specified y-axis limits
+  geom_segment(data = vline_profit_a, aes(x = x, xend = x, y = y_limits_profit_a[1]+5, yend = y, color = label), 
+               linetype = "dashed") +
+  
+  # Add text annotations for points
+  geom_text(data = annotations_profit_a, aes(x = input_rate, y = y_limits_profit_a[1] , 
+                                           label = abrv, color = label), 
+            vjust = 0, hjust = 0.5, size = 4) +
+  
+  # Add text annotations for profit_hat differences from EOSR
+  geom_text(data = filter(annotations_profit_a, !is.na(diff_label)),
+            aes(x = input_rate, y = profit_hat, label = diff_label, color = label), 
+            vjust = -1, hjust = 0.5, size = 4, fontface = "italic") +
+  
+  # Set y-axis limits to avoid interference from vertical lines
+  coord_cartesian(ylim = y_limits_profit_a,
+                  xlim = c(30,40)) +
+  
+  # Set the color scale for the plot (no legend)
+  scale_color_manual(values = c("SQSR" = "blue", "EOSR" = "red", "YMSR" = "black")) +
+  
+  # Remove the legend
+   theme(
+    axis.title.x = element_text(size = 18),  # Increase font size for x-axis label
+    axis.title.y = element_text(size = 18),  # Increase font size for y-axis label
+    axis.text.x = element_text(size = 18),    # Increase font size for x-axis numeric values
+    axis.text.y = element_text(size = 18) ,    # Increase font size for y-axis numeric values
+     legend.position = "none") +
+  
+  # Customize labels
+  labs( x = "Seeding Rate (K/ac)", y = "Estimated Profit ($/ac)")
+
+# Display the plot
+print(plot_profit_strong_inc)
+
+
+# Define y-axis limits for yield plot
+y_limits_yield_a <- c(min(est_pp_a$yield_hat, na.rm = TRUE) * 0.98, max(est_pp_a$yield_hat, na.rm = TRUE) * 1.02)
+
+# Create data frame for vertical lines with labels and colors for yield
+vline_yield_a <- tibble(
+  x = c(stq_s_point_a$input_rate, opt_s_point_a$input_rate, max_y_point_a$input_rate),
+  y = c(stq_s_point_a$yield_hat, opt_s_point_a$yield_hat, max_y_point_a$yield_hat),
+  color = c("blue", "red", "black"),
+  label = c("SQSR", "EOSR", "YMSR")
+)
+
+
+diff_yield_stq_eosr_a <- stq_s_point_a$yield_hat - opt_s_point_a$yield_hat 
+diff_yield_max_eosr_a <- max_y_point_a$yield_hat - opt_s_point_a$yield_hat 
+
+
+
+# Create annotations data frame for yield
+annotations_yield_a <- bind_rows(
+  stq_s_point_a %>%
+    mutate(
+      abrv = paste("SQSR", "\n","(", as.character(round(input_rate,1)), ")"),
+      label = "SQSR",
+      color = "blue",
+      diff_label = paste0(sprintf("%.1f", diff_yield_stq_eosr_a)," bu")  # Use yield differences if available
+    ),
+  opt_s_point_a %>%
+    mutate(
+      abrv = paste("EOSR", "\n", "(", as.character(round(input_rate,1)), ")"),
+      label = "EOSR",
+      color = "red",
+      diff_label = NA
+    ),
+  max_y_point_a %>%
+    mutate(
+      abrv = paste("YMSR", "\n", "(", as.character(round(input_rate,1)), ")"),
+      label = "YMSR",
+      color = "black",
+      diff_label = paste0(sprintf("%.1f", diff_yield_max_eosr_a)," bu")  # Use yield differences if available
+    )
+)
+
+
+
+
+# Create the yield plot
+plot_yield_strong_inc <- ggplot(est_pp_a, aes(x = input_rate, y = yield_hat)) +
+  geom_smooth(method = "loess", color = 'green') +
+  geom_point(data = stq_s_point_a, aes(x = input_rate, y = yield_hat), color = "blue", size = 1.5) +
+  geom_point(data = opt_s_point_a, aes(x = input_rate, y = yield_hat), color = "red", size = 1.5) +
+  geom_point(data = max_y_point_a, aes(x = input_rate, y = yield_hat), color = "black", size = 1.5) +
+  
+  # Draw vertical lines with dashed linetype and specified y-axis limits
+  geom_segment(data = vline_yield_a, aes(x = x, xend = x, y = y_limits_yield_a[1] +4, yend = y, color = label), 
+               linetype = "dashed") +
+  
+  # Add text annotations for points
+  geom_text(data = annotations_yield_a, aes(x = input_rate, y = y_limits_yield_a[1]+1, 
+                                           label = abrv, color = label), 
+            vjust = 0, hjust = 0.5, size = 4) +
+  
+  # Add text annotations for yield_hat differences from EOSR
+  geom_text(data = filter(annotations_yield_a, !is.na(diff_label)),
+            aes(x = input_rate, y = yield_hat, label = diff_label, color = label), 
+            vjust = -1, hjust = 0.5, size = 4, fontface = "italic") +
+  
+  # Set y-axis limits to avoid interference from vertical lines
+  coord_cartesian(ylim = y_limits_yield_a,
+                  xlim = c(30,40)) +
+  
+  # Set the color scale for the plot (no legend)
+  scale_color_manual(values = c("SQSR" = "blue", "EOSR" = "red", "YMSR" = "black")) +
+  
+  # Remove the legend
+ # Remove the legend
+   theme(
+    axis.title.x = element_text(size = 18),  # Increase font size for x-axis label
+    axis.title.y = element_text(size = 18),  # Increase font size for y-axis label
+    axis.text.x = element_text(size = 18),    # Increase font size for x-axis numeric values
+    axis.text.y = element_text(size = 18) ,    # Increase font size for y-axis numeric values
+     legend.position = "none") +
+  # Customize labels
+  labs( x = "Seeding Rate (K/ac)", y = "Estimated Yield (units/ac)")
+
+# Combine both plots vertically
+type_a2_response_plot <- plot_yield_strong_inc | plot_profit_strong_inc 
+
+# Display the combined plot
+
+
+
+
+
+
+###################################################
+###################################################
+# Result Figure2(dif_pro_seed_comb ; Diff Profit at a given climate)
+###################################################
+
+```{r Result Figure2 Diff Profit at a given climate, cache = T, results = "hide"}
+
+
+not_in_fig2 <-c('eval_s', 'quad_fit', 'coef_quad', 'b', 'a', 'c', 'f_dv', 's_dv', 'ymsr')
+
+est_fig2 <- est_type_all %>% dplyr::select(-all_of(not_in_fig2))
+
+# Grouping by prcp_tot for dif_pro_seed
+est_fig2$prcp_group <- cut(
+  est_tab2$prcp_tot,
+  breaks = quantile(est_fig2$prcp_tot, probs = 0:10 / 10, na.rm = TRUE),
+  include.lowest = TRUE
+)
+
+# Define colors for each prcp_group using a blue color scale
+group_colors_prec <- colorRampPalette(brewer.pal(9, "Blues"))(10)  # 10 shades of blue
+
+# Define labels for the legend based on numeric ranges
+group_labels_prec <- levels(est_fig2$prcp_group)
+
+# Plot for prcp_tot
+dif_pro_seed_prec <- ggplot(est_fig2) +
+  geom_point(aes(x = dif_s, y = dif_p, color = prcp_group),size = 3) + scale_color_manual(
+    name = "Precipitation (inch)",  # Legend title with two lines
+    values = group_colors_prec,  # Colors for each prcp_group
+    breaks = group_labels_prec,  # Display the actual ranges in the legend
+    labels = group_labels_prec,  # Use numeric ranges as labels
+     guide = guide_legend(ncol = 1)
+  ) +
+   geom_segment(aes(x = 0, y = -100, xend = 0, yend = 0), color = "black", size = 0.5,
+                linetype='dashed') +  # Add vertical line
+  scale_x_continuous(
+    breaks = seq(floor(min(est_tab2$dif_s, na.rm = TRUE) / 5) * 5,
+                 ceiling(max(est_tab2$dif_s, na.rm = TRUE) / 5) * 5,
+                 by = 5)  # Set breaks every 5 units
+  ) +
+  ylim(-100, 0) +  # Set y-axis limits
+  labs(
+    x = NULL,
+    y = "Estimated Profit Difference($/ac)"
+  ) +
+  theme(
+    legend.position = "right", 
+    legend.direction = 'vertical',# Place the legend at the bottom
+      axis.text = element_text(size = 16),  # Increase axis text size
+    axis.title = element_text(size = 16),  # Increase axis title size
+    legend.title = element_text(size = 16),  # Increase legend title font size
+    legend.text = element_text(size = 16)    # Increase legend text font size
+  )
+
+# Grouping by resp_type for dif_pro_seed_type
+est_fig2$resp_type <- factor(est_fig2$resp_type, levels = c('A1', 'A2', 'B1',"B2","C"))
+
+# Define colors for each resp_type using Viridis color scale
+group_colors_resp <- viridis(5)  # Viridis color scale with 4 colors
+
+# Define labels for the legend based on resp_type values
+group_labels_resp <- levels(est_fig2$resp_type)
+
+# Plot for resp_type
+dif_pro_seed_type <- ggplot(est_fig2) +
+  geom_point(aes(x = dif_s, y = dif_p, color = resp_type),size=3) +
+  scale_color_manual(
+    name = "Response Type",  # Legend title
+    values = group_colors_resp,  # Colors for each resp_type
+    breaks = group_labels_resp,  # Display the actual values in the legend
+    labels = group_labels_resp,
+    guide = guide_legend(ncol = 1)# Use resp_type values as labels
+  ) +
+   geom_segment(aes(x = 0, y = -100, xend = 0, yend = 0), color = "black", size = 0.5,
+                linetype='dashed') +  # Add vertical line
+  scale_x_continuous(
+    breaks = seq(floor(min(est_fig2$dif_s, na.rm = TRUE) / 5) * 5,
+                 ceiling(max(est_fig2$dif_s, na.rm = TRUE) / 5) * 5,
+                 by = 5)  # Set breaks every 5 units
+  ) +
+  ylim(-100, 0) +  # Set y-axis limits
+  labs(
+    x = "SQSR - EOSR (K/ac)",
+    y = "Estimated Profit Difference($/ac)"
+  ) +
+  theme(
+    legend.position = "right",
+    legend.direction = "vertical",# Place the legend at the bottom
+     axis.title.x =  element_text(size = 16),
+    axis.text = element_text(size = 16),  # Increase axis text size
+ axis.title.y = element_text(size = 16),  # Increase x-axis title size
+    legend.title = element_text(size = 16),  # Increase legend title font size
+    legend.text = element_text(size = 16)    # Increase legend text font size
+  )
+
+# Combine the two plots side by side with patchwork
+dif_pro_seed_comb <- (dif_pro_seed_prec / dif_pro_seed_type)   # Collect legends to appear only once
+
+
+ggsave(here("Figure","dif_pro_seed_comb.png"), plot = dif_pro_seed_comb , width = 14, height = 12, units = "in")
+
+
+```
+
+
+
+###################################################
+###################################################
+  Type A,B,C figure ( type_resp_combined ; profit and yield response by types)
+###################################################
+###################################################
+
+```{r  Type A2 figure profit and yield response , cache = T, results = "hide"}
+
+###########################################
+## Comparison of profit and yield response vertically
+###############
+
+
+### TYPE A representative 
+
+est_type_a2 <-est_type_all %>% filter(resp_type=="A2")
+
+est_type_a2$ffy
+
+est_dat_a <- est_type_a2 %>% 
+  filter(ffy == "FriestDennis_Dubouis_2023") 
+
+opt_s_ffy_a <- est_dat_a$opt_s
+stq_s_ffy_a <- est_dat_a$stq_s
+
+   est_pp_a <-est_dat_a %>%
+  unnest(eval_s) %>%  # Unnest if eval_s is a list-column
+  mutate(yield_hat = round(yield_hat, 1),
+         profit_hat = round((yield_hat * 5.5 - input_rate * 3.81), 1)) %>%
+     dplyr::select(input_rate,yield_hat,profit_hat)
+
+# Find two points closest to stq_s and opt_s
+stq_s_point_a <-    est_pp_a %>%
+  slice(which.min(abs(input_rate - stq_s_ffy_a)))
+
+max_y_point_a <-  est_pp_a %>%
+  slice(which.max(yield_hat))
+
+opt_s_point_a <-  est_pp_a %>%
+  slice(which.max(profit_hat))
+
+
+# Define y-axis limits to avoid vertical lines affecting the smooth plot
+# Define y-axis limits to avoid vertical lines affecting the smooth plot
+
+y_limits_profit_a <- c(min(est_pp_a$profit_hat, na.rm = TRUE) * 0.98, max(est_pp_a$profit_hat, na.rm = TRUE) * 1.02)  # Adjust as needed
+
+# Create data frame for vertical lines with labels and colors
+vline_profit_a <- tibble(
+  x = c(stq_s_point_a$input_rate, opt_s_point_a$input_rate, max_y_point_a$input_rate),
+  y = c(stq_s_point_a$profit_hat, opt_s_point_a$profit_hat, max_y_point_a$profit_hat),
+  color = c("blue", "red", "black"),
+  label = c("SQSR", "EOSR", "YMSR")
+  #,type = c("dashed", "dashed", "dashed")  # Line type for visual purpose
+)
+
+# Create x-axis labels data frame
+x_labels_a <- tibble(
+  input_rate = c(stq_s_point_a$input_rate, opt_s_point_a$input_rate, max_y_point_a$input_rate),
+  label = as.character(c(stq_s_point_a$input_rate, opt_s_point_a$input_rate, max_y_point_a$input_rate)),
+  color = c("blue", "red", "black")
+)
+
+diff_profit_stq_eosr_a <- opt_s_point_a$profit_hat - stq_s_point_a$profit_hat
+diff_profit_max_eosr_a <- opt_s_point_a$profit_hat - max_y_point_a$profit_hat
+
+# Create annotations data frame with labels directly on the points
+annotations_profit_a <- bind_rows(
+  stq_s_point_a %>%
+    mutate(
+      abrv = paste("SQSR", "\n","(", as.character(round(input_rate,1)), ")"),
+      label = "SQSR",
+      color = "blue",
+      diff_label = sprintf("-$%.1f", diff_profit_stq_eosr_a)
+    ),
+  opt_s_point_a %>%
+    mutate(
+      abrv = paste("EOSR", "\n", "(", as.character(round(input_rate,1)), ")"),
+      label = "EOSR",
+      color = "red",
+      diff_label = NA  # No difference label for EOSR
+    ),
+  max_y_point_a %>%
+    mutate(
+      abrv = paste("YMSR", "\n", "(", as.character(round(input_rate,1)), ")"),
+      label = "YMSR",
+      color = "black",
+      diff_label = sprintf("-$%.1f", diff_profit_max_eosr_a)
+    )
+)
+
+# Create the plot
+plot_profit_strong_inc <- ggplot(est_pp_a, aes(x = input_rate, y = profit_hat)) +
+  geom_smooth(method = "loess", color = 'yellow') +
+  geom_point(data = stq_s_point_a, aes(x = input_rate, y = profit_hat), color = "blue", size = 1.5) +
+  geom_point(data = opt_s_point_a, aes(x = input_rate, y = profit_hat), color = "red", size = 1.5) +
+  geom_point(data = max_y_point_a, aes(x = input_rate, y = profit_hat), color = "black", size = 1.5) +
+  
+  # Draw vertical lines with dashed linetype and specified y-axis limits
+  geom_segment(data = vline_profit_a, aes(x = x, xend = x, y = y_limits_profit_a[1]+5, yend = y, color = label), 
+               linetype = "dashed") +
+  
+  # Add text annotations for points
+  geom_text(data = annotations_profit_a, aes(x = input_rate, y = y_limits_profit_a[1] , 
+                                           label = abrv, color = label), 
+            vjust = 0, hjust = 0.5, size = 4) +
+  
+  # Add text annotations for profit_hat differences from EOSR
+  geom_text(data = filter(annotations_profit_a, !is.na(diff_label)),
+            aes(x = input_rate, y = profit_hat, label = diff_label, color = label), 
+            vjust = -1, hjust = 0.5, size = 4, fontface = "italic") +
+  
+  # Set y-axis limits to avoid interference from vertical lines
+  coord_cartesian(ylim = y_limits_profit_a,
+                  xlim = c(30,40)) +
+  
+  # Set the color scale for the plot (no legend)
+  scale_color_manual(values = c("SQSR" = "blue", "EOSR" = "red", "YMSR" = "black")) +
+  
+  # Remove the legend
+   theme(
+    axis.title.x = element_text(size = 18),  # Increase font size for x-axis label
+    axis.title.y = element_text(size = 18),  # Increase font size for y-axis label
+    axis.text.x = element_text(size = 18),    # Increase font size for x-axis numeric values
+    axis.text.y = element_text(size = 18) ,    # Increase font size for y-axis numeric values
+     legend.position = "none") +
+  
+  # Customize labels
+  labs( x = "Seeding Rate (K/ac)", y = "Estimated Profit ($/ac)")
+
+# Display the plot
+print(plot_profit_strong_inc)
+
+
+# Define y-axis limits for yield plot
+y_limits_yield_a <- c(min(est_pp_a$yield_hat, na.rm = TRUE) * 0.98, max(est_pp_a$yield_hat, na.rm = TRUE) * 1.02)
+
+# Create data frame for vertical lines with labels and colors for yield
+vline_yield_a <- tibble(
+  x = c(stq_s_point_a$input_rate, opt_s_point_a$input_rate, max_y_point_a$input_rate),
+  y = c(stq_s_point_a$yield_hat, opt_s_point_a$yield_hat, max_y_point_a$yield_hat),
+  color = c("blue", "red", "black"),
+  label = c("SQSR", "EOSR", "YMSR")
+)
+
+
+diff_yield_stq_eosr_a <- stq_s_point_a$yield_hat - opt_s_point_a$yield_hat 
+diff_yield_max_eosr_a <- max_y_point_a$yield_hat - opt_s_point_a$yield_hat 
+
+
+
+# Create annotations data frame for yield
+annotations_yield_a <- bind_rows(
+  stq_s_point_a %>%
+    mutate(
+      abrv = paste("SQSR", "\n","(", as.character(round(input_rate,1)), ")"),
+      label = "SQSR",
+      color = "blue",
+      diff_label = paste0(sprintf("%.1f", diff_yield_stq_eosr_a)," bu")  # Use yield differences if available
+    ),
+  opt_s_point_a %>%
+    mutate(
+      abrv = paste("EOSR", "\n", "(", as.character(round(input_rate,1)), ")"),
+      label = "EOSR",
+      color = "red",
+      diff_label = NA
+    ),
+  max_y_point_a %>%
+    mutate(
+      abrv = paste("YMSR", "\n", "(", as.character(round(input_rate,1)), ")"),
+      label = "YMSR",
+      color = "black",
+      diff_label = paste0(sprintf("%.1f", diff_yield_max_eosr_a)," bu")  # Use yield differences if available
+    )
+)
+
+
+
+
+# Create the yield plot
+plot_yield_strong_inc <- ggplot(est_pp_a, aes(x = input_rate, y = yield_hat)) +
+  geom_smooth(method = "loess", color = 'green') +
+  geom_point(data = stq_s_point_a, aes(x = input_rate, y = yield_hat), color = "blue", size = 1.5) +
+  geom_point(data = opt_s_point_a, aes(x = input_rate, y = yield_hat), color = "red", size = 1.5) +
+  geom_point(data = max_y_point_a, aes(x = input_rate, y = yield_hat), color = "black", size = 1.5) +
+  
+  # Draw vertical lines with dashed linetype and specified y-axis limits
+  geom_segment(data = vline_yield_a, aes(x = x, xend = x, y = y_limits_yield_a[1] +4, yend = y, color = label), 
+               linetype = "dashed") +
+  
+  # Add text annotations for points
+  geom_text(data = annotations_yield_a, aes(x = input_rate, y = y_limits_yield_a[1]+1, 
+                                           label = abrv, color = label), 
+            vjust = 0, hjust = 0.5, size = 4) +
+  
+  # Add text annotations for yield_hat differences from EOSR
+  geom_text(data = filter(annotations_yield_a, !is.na(diff_label)),
+            aes(x = input_rate, y = yield_hat, label = diff_label, color = label), 
+            vjust = -1, hjust = 0.5, size = 4, fontface = "italic") +
+  
+  # Set y-axis limits to avoid interference from vertical lines
+  coord_cartesian(ylim = y_limits_yield_a,
+                  xlim = c(30,40)) +
+  
+  # Set the color scale for the plot (no legend)
+  scale_color_manual(values = c("SQSR" = "blue", "EOSR" = "red", "YMSR" = "black")) +
+  
+  # Remove the legend
+ # Remove the legend
+   theme(
+    axis.title.x = element_text(size = 18),  # Increase font size for x-axis label
+    axis.title.y = element_text(size = 18),  # Increase font size for y-axis label
+    axis.text.x = element_text(size = 18),    # Increase font size for x-axis numeric values
+    axis.text.y = element_text(size = 18) ,    # Increase font size for y-axis numeric values
+     legend.position = "none") +
+  # Customize labels
+  labs( x = "Seeding Rate (K/ac)", y = "Estimated Yield (units/ac)")
+
+# Combine both plots vertically
+type_a2_response_plot <- plot_yield_strong_inc | plot_profit_strong_inc 
+
+# Display the combined plot
+
+
+
+```
+
+```{r  Type B2 figure profit and yield response , cache = T, results = "hide"}
+
+est_type_b2 <-est_type_all %>% filter(resp_type=="B2")
+
+est_type_b2$ffy
+
+
+est_dat_b <- est_type_b2 %>% 
+  filter(ffy == "Nelson_Wirth_2022") 
+
+opt_s_ffy_b <- est_dat_b$opt_s
+stq_s_ffy_b <- est_dat_b$stq_s
+
+   est_pp_b <-est_dat_b %>%
+  unnest(eval_s) %>%  # Unnest if eval_s is a list-column
+  mutate(yield_hat = round(yield_hat, 1),
+         profit_hat = round((yield_hat * 5.5 - input_rate * 3.81), 1)) %>%
+     dplyr::select(input_rate,yield_hat,profit_hat)
+
+# Find two points closest to stq_s and opt_s
+stq_s_point_b <-    est_pp_b %>%
+  slice(which.min(abs(input_rate - stq_s_ffy)))
+
+max_y_point_b <-  est_pp_b %>%
+  slice(which.max(yield_hat))
+
+opt_s_point_b <-  est_pp_b %>%
+  slice(which.max(profit_hat))
+
+
+# Define y-axis limits to avoid vertical lines affecting the smooth plot
+# Define y-axis limits to avoid vertical lines affecting the smooth plot
+
+y_limits_profit_b <- c(min(est_pp_b$profit_hat, na.rm = TRUE) * 0.98, max(est_pp_b$profit_hat, na.rm = TRUE) * 1.02)  # Adjust as needed
+
+# Create data frame for vertical lines with labels and colors
+vline_profit_b <- tibble(
+  x = c(stq_s_point_b$input_rate, opt_s_point_b$input_rate, max_y_point_b$input_rate),
+  y = c(stq_s_point_b$profit_hat, opt_s_point_b$profit_hat, max_y_point_b$profit_hat),
+  color = c("blue", "red", "black"),
+  label = c("SQSR", "EOSR", "YMSR")
+  #,type = c("dashed", "dashed", "dashed")  # Line type for visual purpose
+)
+
+# Create x-axis labels data frame
+x_labels_b <- tibble(
+  input_rate = c(stq_s_point_b$input_rate, opt_s_point_b$input_rate, max_y_point_b$input_rate),
+  label = as.character(c(stq_s_point_b$input_rate, opt_s_point_b$input_rate, max_y_point_b$input_rate)),
+  color = c("blue", "red", "black")
+)
+
+diff_profit_stq_eosr_b <- opt_s_point_b$profit_hat - stq_s_point_b$profit_hat
+diff_profit_max_eosr_b <- opt_s_point_b$profit_hat - max_y_point_b$profit_hat
+
+# Create annotations data frame with labels directly on the points
+annotations_profit_b <- bind_rows(
+  stq_s_point %>%
+    mutate(
+      abrv = paste("SQSR", "\n","(", as.character(round(input_rate,1)), ")"),
+      label = "SQSR",
+      color = "blue",
+      diff_label = sprintf("-$%.1f", diff_profit_stq_eosr_b)
+    ),
+  opt_s_point_b %>%
+    mutate(
+      abrv = paste("EOSR", "\n", "(", as.character(round(input_rate,1)), ")"),
+      label = "EOSR",
+      color = "red",
+      diff_label = NA  # No difference label for EOSR
+    ),
+  max_y_point_b %>%
+    mutate(
+      abrv = paste("YMSR", "\n", "(", as.character(round(input_rate,1)), ")"),
+      label = "YMSR",
+      color = "black",
+      diff_label = sprintf("-$%.1f", diff_profit_max_eosr_b)
+    )
+)
+
+# Create the plot
+plot_profit_plateau_inc1 <- ggplot(est_pp_b, aes(x = input_rate, y = profit_hat)) +
+  geom_smooth(method = "loess", color = 'yellow') +
+  geom_point(data = stq_s_point_b, aes(x = input_rate, y = profit_hat), color = "blue", size = 1.5) +
+  geom_point(data = opt_s_point_b, aes(x = input_rate, y = profit_hat), color = "red", size = 1.5) +
+  geom_point(data = max_y_point_b, aes(x = input_rate, y = profit_hat), color = "black", size = 1.5) +
+  
+  # Draw vertical lines with dashed linetype and specified y-axis limits
+  geom_segment(data = vline_profit_b, aes(x = x, xend = x, y = y_limits_profit_b[1]+15, yend = y, color = label), 
+               linetype = "dashed") +
+  
+  # Add text annotations for points
+  geom_text(data = annotations_profit_b, aes(x = input_rate, y = y_limits_profit_b[1] , 
+                                           label = abrv, color = label), 
+            vjust = 0, hjust = 0.5, size = 4) +
+  
+  # Add text annotations for profit_hat differences from EOSR
+  geom_text(data = filter(annotations_profit_b, !is.na(diff_label)),
+            aes(x = input_rate, y = profit_hat, label = diff_label, color = label), 
+            vjust = -1, hjust = 0.5, size = 4, fontface = "italic") +
+  
+  # Set y-axis limits to avoid interference from vertical lines
+  coord_cartesian(ylim = y_limits_profit_b,
+                  xlim = c(27.5,37.5)) +
+  
+  # Set the color scale for the plot (no legend)
+  scale_color_manual(values = c("SQSR" = "blue", "EOSR" = "red", "YMSR" = "black")) +
+  # Remove the legend
+   theme(
+    axis.title.x = element_text(size = 18),  # Increase font size for x-axis label
+    axis.title.y = element_text(size = 18),  # Increase font size for y-axis label
+    axis.text.x = element_text(size = 18),    # Increase font size for x-axis numeric values
+    axis.text.y = element_text(size = 18) ,    # Increase font size for y-axis numeric values
+     legend.position = "none") +
+  # Customize labels
+  labs( x = "Seeding Rate (K/ac)", y = "Estimated Profit ($/ac)")
+
+
+# Define y-axis limits for yield plot
+y_limits_yield_b <- c(min(est_pp_b$yield_hat, na.rm = TRUE) * 0.98, max(est_pp_b$yield_hat, na.rm = TRUE) * 1.02)
+
+# Create data frame for vertical lines with labels and colors for yield
+vline_yield_b <- tibble(
+  x = c(stq_s_point_b$input_rate, opt_s_point_b$input_rate, max_y_point_b$input_rate),
+  y = c(stq_s_point_b$yield_hat, opt_s_point_b$yield_hat, max_y_point_b$yield_hat),
+  color = c("blue", "red", "black"),
+  label = c("SQSR", "EOSR", "YMSR")
+)
+
+
+diff_yield_stq_eosr_b <- stq_s_point_b$yield_hat - opt_s_point_b$yield_hat 
+diff_yield_max_eosr_b <- max_y_point_b$yield_hat - opt_s_point_b$yield_hat 
+
+
+
+# Create annotations data frame for yield
+annotations_yield_b <- bind_rows(
+  stq_s_point %>%
+    mutate(
+      abrv = paste("SQSR", "\n","(", as.character(round(input_rate,1)), ")"),
+      label = "SQSR",
+      color = "blue",
+      diff_label = paste0(sprintf("%.1f", diff_yield_stq_eosr_b)," bu")  # Use yield differences if available
+    ),
+  opt_s_point_b %>%
+    mutate(
+      abrv = paste("EOSR", "\n", "(", as.character(round(input_rate,1)), ")"),
+      label = "EOSR",
+      color = "red",
+      diff_label = NA
+    ),
+  max_y_point_b %>%
+    mutate(
+      abrv = paste("YMSR", "\n", "(", as.character(round(input_rate,1)), ")"),
+      label = "YMSR",
+      color = "black",
+      diff_label = paste0(sprintf("%.1f", diff_yield_max_eosr_b)," bu")  # Use yield differences if available
+    )
+)
+
+# Create the yield plot
+plot_yield_plateau_inc1 <- ggplot(est_pp_b, aes(x = input_rate, y = yield_hat)) +
+  geom_smooth(method = "loess", color = 'green') +
+  geom_point(data = stq_s_point_b, aes(x = input_rate, y = yield_hat), color = "blue", size = 1.5) +
+  geom_point(data = opt_s_point_b, aes(x = input_rate, y = yield_hat), color = "red", size = 1.5) +
+  geom_point(data = max_y_point_b, aes(x = input_rate, y = yield_hat), color = "black", size = 1.5) +
+  
+  # Draw vertical lines with dashed linetype and specified y-axis limits
+  geom_segment(data = vline_yield_b, aes(x = x, xend = x, y = y_limits_yield_b[1] +4, yend = y, color = label), 
+               linetype = "dashed") +
+  
+  # Add text annotations for points
+  geom_text(data = annotations_yield_b, aes(x = input_rate, y = y_limits_yield_b[1]+1, 
+                                           label = abrv, color = label), 
+            vjust = 0, hjust = 0.5, size = 4) +
+  
+  # Add text annotations for yield_hat differences from EOSR
+  geom_text(data = filter(annotations_yield_b, !is.na(diff_label)),
+            aes(x = input_rate, y = yield_hat, label = diff_label, color = label), 
+            vjust = -1, hjust = 0.5, size = 4, fontface = "italic") +
+  
+  # Set y-axis limits to avoid interference from vertical lines
+  coord_cartesian(ylim = y_limits_yield_b,
+                  xlim = c(27.5,37.5)) +
+  
+  # Set the color scale for the plot (no legend)
+  scale_color_manual(values = c("SQSR" = "blue", "EOSR" = "red", "YMSR" = "black")) +
+   # Remove the legend
+   theme(
+    axis.title.x = element_text(size = 18),  # Increase font size for x-axis label
+    axis.title.y = element_text(size = 18),  # Increase font size for y-axis label
+    axis.text.x = element_text(size = 18),    # Increase font size for x-axis numeric values
+    axis.text.y = element_text(size = 18) ,    # Increase font size for y-axis numeric values
+     legend.position = "none") +
+  # Customize labels
+  labs( x = "Seeding Rate (K/ac)", y = "Estimated Yield (K/ac)")
+
+print(plot_yield_plateau_inc1)
+
+
+
+type_b2_response_plot <-  plot_yield_plateau_inc1 | plot_profit_plateau_inc1 
+
+```
+
+```{r Type A1,B1 figure profit and yield response , cache = T, results = "hide"}
+## (concave and down)
+# 'Nelson_DJWest_2023'
+
+## Problematic field 
+## 'CLC_ManfredJohnson_2023'
+
+est_type_a1 <- est_type_all %>% filter(resp_type=="A1")
+est_type_a1$ffy
+
+est_type_b1 <- est_type_all %>% filter(resp_type=="B1")
+est_type_b1$ffy
+
+
+est_dat_a1 <- est_type_a1 %>% filter(ffy == 'Gingerich_Field1_2022')
+
+opt_s_ffy_a1 <- est_dat_a1$opt_s
+stq_s_ffy_a1 <- est_dat_a1$stq_s
+
+   est_pp_a1 <-est_dat_a1 %>%
+  unnest(eval_s) %>%  # Unnest if eval_s is a list-column
+  mutate(yield_hat = round(yield_hat, 1),
+         profit_hat = round((yield_hat * 5.5 - input_rate * 3.81), 1)) %>%
+     dplyr::select(input_rate,yield_hat,profit_hat)
+
+# Find two points closest to stq_s and opt_s
+stq_s_point_a1 <-    est_pp_a1 %>%
+  slice(which.min(abs(input_rate - stq_s_ffy_a1)))
+
+opt_s_point_a1 <-  est_pp_a1 %>%
+  slice(which.max(profit_hat))
+
+
+# Define y-axis limits to avoid vertical lines affecting the smooth plot
+# Define y-axis limits to avoid vertical lines affecting the smooth plot
+
+y_limits_profit_a1 <- c(min(est_pp_a1$profit_hat, na.rm = TRUE) * 0.98, max(est_pp_a1$profit_hat, na.rm = TRUE) * 1.02)  # Adjust as needed
+
+# Create data frame for vertical lines with labels and colors
+vline_profit_a1 <- tibble(
+  x = c(stq_s_point_a1$input_rate, opt_s_point_a1$input_rate),
+  y = c(stq_s_point_a1$profit_hat, opt_s_point_a1$profit_hat),
+  color = c("blue", "red"),
+  label = c("SQSR", "EOSR")
+  #,type = c("dashed", "dashed", "dashed")  # Line type for visual purpose
+)
+
+# Create x-axis labels data frame
+x_labels_a <- tibble(
+  input_rate = c(stq_s_point_a1$input_rate, opt_s_point_a1$input_rate),
+  label = as.character(c(stq_s_point_a1$input_rate, opt_s_point_a1$input_rate)),
+  color = c("blue", "red")
+)
+
+diff_profit_stq_eosr_a1 <- opt_s_point_a1$profit_hat - stq_s_point_a1$profit_hat
+
+# Create annotations data frame with labels directly on the points
+annotations_profit_a1 <- bind_rows(
+  stq_s_point_a1 %>%
+    mutate(
+      abrv = paste("SQSR", "\n","(", as.character(round(input_rate,1)), ")"),
+      label = "SQSR",
+      color = "blue",
+      diff_label = sprintf("-$%.1f", diff_profit_stq_eosr_a1)
+    ),
+  opt_s_point_a1 %>%
+    mutate(
+      abrv = paste("EOSR", "\n", "(", as.character(round(input_rate,1)), ")"),
+      label = "EOSR",
+      color = "red",
+      diff_label = NA  # No difference label for EOSR
+    )
+)
+
+# Create the plot
+plot_profit_a1 <- ggplot(est_pp_a1, aes(x = input_rate, y = profit_hat)) +
+  geom_smooth(method = "loess", color = 'yellow') +
+  geom_point(data = stq_s_point_a1, aes(x = input_rate, y = profit_hat), color = "blue", size = 1.5) +
+  geom_point(data = opt_s_point_a1, aes(x = input_rate, y = profit_hat), color = "red", size = 1.5) +
+  
+  # Draw vertical lines with dashed linetype and specified y-axis limits
+  geom_segment(data = vline_profit_a1, aes(x = x, xend = x, y = y_limits_profit_a1[1]+5, yend = y, color = label), 
+               linetype = "dashed") +
+  
+  # Add text annotations for points
+  geom_text(data = annotations_profit_a1, aes(x = input_rate, y = y_limits_profit_a1[1] , 
+                                           label = abrv, color = label), 
+            vjust = 0, hjust = 0.5, size = 4) +
+  
+  # Add text annotations for profit_hat differences from EOSR
+  geom_text(data = filter(annotations_profit_a1, !is.na(diff_label)),
+            aes(x = input_rate, y = profit_hat, label = diff_label, color = label), 
+            vjust = -1, hjust = 0.5, size = 4, fontface = "italic") +
+  
+  # Set y-axis limits to avoid interference from vertical lines
+  coord_cartesian(ylim = y_limits_profit_a1,
+                  xlim = c(30,40)) +
+  
+  # Set the color scale for the plot (no legend)
+  scale_color_manual(values = c("SQSR" = "blue", "EOSR" = "red")) +
+  
+  # Remove the legend
+   theme(
+    axis.title.x = element_text(size = 18),  # Increase font size for x-axis label
+    axis.title.y = element_text(size = 18),  # Increase font size for y-axis label
+    axis.text.x = element_text(size = 18),    # Increase font size for x-axis numeric values
+    axis.text.y = element_text(size = 18) ,    # Increase font size for y-axis numeric values
+     legend.position = "none") +
+  
+  # Customize labels
+  labs( x = "Seeding Rate (K/ac)", y = "Estimated Profit ($/ac)")
+
+
+
+
+est_dat_b1 <- est_type_b1 %>% filter(ffy == 'CLC_CorralsEast_2022')
+
+opt_s_ffy_b1 <- est_dat_b1$opt_s
+stq_s_ffy_b1 <- est_dat_b1$stq_s
+
+   est_pp_b1 <-est_dat_b1 %>%
+  unnest(eval_s) %>%  # Unnest if eval_s is a list-column
+  mutate(yield_hat = round(yield_hat, 1),
+         profit_hat = round((yield_hat * 5.5 - input_rate * 3.81), 1)) %>%
+     dplyr::select(input_rate,yield_hat,profit_hat)
+
+# Find two points closest to stq_s and opt_s
+stq_s_point_b1 <-    est_pp_b1 %>%
+  slice(which.min(abs(input_rate - stq_s_ffy_b1)))
+
+opt_s_point_b1 <-  est_pp_b1 %>%
+  slice(which.max(profit_hat))
+
+
+# Define y-axis limits to avoid vertical lines affecting the smooth plot
+# Define y-axis limits to avoid vertical lines affecting the smooth plot
+
+y_limits_profit_b1 <- c(min(est_pp_b1$profit_hat, na.rm = TRUE) * 0.98, max(est_pp_b1$profit_hat, na.rm = TRUE) * 1.02)  # Adjust as needed
+
+# Create data frame for vertical lines with labels and colors
+vline_profit_b1 <- tibble(
+  x = c(stq_s_point_b1$input_rate, opt_s_point_b1$input_rate),
+  y = c(stq_s_point_b1$profit_hat, opt_s_point_b1$profit_hat),
+  color = c("blue", "red"),
+  label = c("SQSR", "EOSR")
+  #,type = c("dashed", "dashed", "dashed")  # Line type for visual purpose
+)
+
+# Create x-axis labels data frame
+x_labels_a <- tibble(
+  input_rate = c(stq_s_point_b1$input_rate, opt_s_point_b1$input_rate),
+  label = as.character(c(stq_s_point_b1$input_rate, opt_s_point_b1$input_rate)),
+  color = c("blue", "red")
+)
+
+diff_profit_stq_eosr_b1 <- opt_s_point_b1$profit_hat - stq_s_point_b1$profit_hat
+
+# Create annotations data frame with labels directly on the points
+annotations_profit_b1 <- bind_rows(
+  stq_s_point_b1 %>%
+    mutate(
+      abrv = paste("SQSR", "\n","(", as.character(round(input_rate,1)), ")"),
+      label = "SQSR",
+      color = "blue",
+      diff_label = sprintf("-$%.1f", diff_profit_stq_eosr_b1)
+    ),
+  opt_s_point_b1 %>%
+    mutate(
+      abrv = paste("EOSR", "\n", "(", as.character(round(input_rate,1)), ")"),
+      label = "EOSR",
+      color = "red",
+      diff_label = NA  # No difference label for EOSR
+    )
+)
+
+# Create the plot
+plot_profit_b1 <- ggplot(est_pp_b1, aes(x = input_rate, y = profit_hat)) +
+  geom_smooth(method = "loess", color = 'yellow') +
+  geom_point(data = stq_s_point_b1, aes(x = input_rate, y = profit_hat), color = "blue", size = 1.5) +
+  geom_point(data = opt_s_point_b1, aes(x = input_rate, y = profit_hat), color = "red", size = 1.5) +
+  
+  # Draw vertical lines with dashed linetype and specified y-axis limits
+  geom_segment(data = vline_profit_b1, aes(x = x, xend = x, y = y_limits_profit_b1[1]+5, yend = y, color = label), 
+               linetype = "dashed") +
+  
+  # Add text annotations for points
+  geom_text(data = annotations_profit_b1, aes(x = input_rate, y = y_limits_profit_b1[1] , 
+                                           label = abrv, color = label), 
+            vjust = 0, hjust = 0.5, size = 4) +
+  
+  # Add text annotations for profit_hat differences from EOSR
+  geom_text(data = filter(annotations_profit_b1, !is.na(diff_label)),
+            aes(x = input_rate, y = profit_hat, label = diff_label, color = label), 
+            vjust = -1, hjust = 0.5, size = 4, fontface = "italic") +
+  
+  # Set y-axis limits to avoid interference from vertical lines
+  coord_cartesian(ylim = y_limits_profit_b1,
+                  xlim = c(17.5,30)) +
+  
+  # Set the color scale for the plot (no legend)
+  scale_color_manual(values = c("SQSR" = "blue", "EOSR" = "red")) +
+  
+  # Remove the legend
+   theme(
+    axis.title.x = element_text(size = 18),  # Increase font size for x-axis label
+    axis.title.y = element_text(size = 18),  # Increase font size for y-axis label
+    axis.text.x = element_text(size = 18),    # Increase font size for x-axis numeric values
+    axis.text.y = element_text(size = 18) ,    # Increase font size for y-axis numeric values
+     legend.position = "none") +
+  
+  # Customize labels
+  labs( x = "Seeding Rate (K/ac)", y = "Estimated Profit ($/ac)")
+
+
+type_a1_b1_response_plot <- plot_profit_a1 | plot_profit_b1 
+
+
+ 
+```
+
+```{r all Type combined figure , cache = T, results = "hide"}
+
+# Add captions to the combined plot using patchwork's plot_annotation
+
+
+# Create individual captions for each subplot
+caption_a2 <- ggplot() + 
+  annotate("text", x = 0.5, y = 0.5, label = "[Type A2]  EOSR > SQSR & Concave &  EOSR ≠ YMSR", 
+           size = 8, hjust = 0.5, vjust = 0.5) + 
+  theme_void()
+
+caption_b2 <- ggplot() + 
+  annotate("text", x = 0.5, y = 0.5, label = "[Type B2]  EOSR < SQSR & Concave &  EOSR ≠ YMSR", 
+           size = 8, hjust = 0.5, vjust = 0.5) + 
+  theme_void()
+
+caption_a1_b1 <- ggplot() + 
+  annotate("text", x = 0.5, y = 0.5, label = "[Type A1 & B1] Concave &  EOSR = YMSR", 
+           size = 8, hjust = 0.5, vjust = 0.5) + 
+  theme_void()
+
+# Arrange the plots in a 3x2 grid with captions below each type of plot
+type_all_response_plot <- (
+  type_a2_response_plot / caption_a2 / 
+  type_b2_response_plot / caption_b2 / 
+  type_a1_b1_response_plot / caption_a1_b1
+) + plot_layout(ncol = 1, heights = c(6, 1, 6, 1,6, 1))
+
+# Display the combined plot
+print(type_all_response_plot)
+
+# Save the combined plot as a PNG file
+ggsave(here("Figure","type_all_response_plot.png"), 
+       plot = type_all_response_plot, 
+       width = 15, height = 18, dpi = 300)
+
+```
+
+
+######################################
+############################
+10 year Historical price ratio changes scenario
+############################
+######################################
+
+c_prices <- c(5.5, 3.8, 3.6, 3.7, 3.9, 3.6, 5.7, 6.9, 5.6, 4.3)
+s_prices <- c(3.8, 3.4, 3.3, 3.2, 2.9, 3.1, 3.2, 3.4, 3.6, 3.4)
+
+```{r 10year Historical price ratio changes scenario , cache = T, results = "hide"}
+
+
+# 3.6 , 3.3 ( 3 in the list, highest seed cost ratio)
+# 6.9, 3.4 (8 in the list, lowest seed cost ratio)
+
+########################
+
+est_bind_list <- readRDS(here("Data/analysis_results_at_hist_price_0829_24.RDS"))
+
+daymet30_list <-readRDS(here("Data","daymet_30_list_0904_24.rds"))
+daymet_list<-readRDS(here("Data","daymet_t_list_0904_24.rds"))
+
+daymet_30 <-bind_rows(daymet30_list)
+daymet_t <-bind_rows(daymet_list)
+
+
+
+
+est_price3 <-est_bind_list[[3]]
+
+est_price3 <- est_price3 %>%
+  mutate(dif_s = stq_s - opt_s,
+         dif_p = stq_p - opt_p,
+         dif_y = stq_y - opt_y)
+
+daymet_t_price3 <- daymet_t[daymet_t$ffy %in% est_price3$ffy, ]
+
+est_price3_day <-left_join(est_price3,daymet_t_price3, by = 'ffy')
+
+
+est_price3_day <- est_price3_day %>%
+  mutate(
+    yield = map_dbl(eval_s, ~ mean(.x$yield_hat, na.rm = TRUE))
+  ) %>% dplyr::select(-weather) %>%
+   mutate(gdd_tot = round(gdd_tot,0),
+          prcp_tot = round(prcp_tot,0))
+
+ 
+est_type_all_price3  <- est_price3_day  %>%
+  dplyr::select(ffy, opt_s,stq_s,dif_s, dif_p, dif_y, eval_s,farm_id,year,
+                gdd_tot,prcp_tot) %>%
+ mutate(
+    # Apply quadratic fit to each element in eval_s using map
+    quad_fit = map(eval_s, ~ lm(yield_hat ~ input_rate + I(input_rate^2), data = .x)),
+    
+    # Extract coefficients (a, b, c) from the quadratic fit using map
+    coef_quad = map(quad_fit, coef),
+    # Extract individual coefficients for each fit
+    b = map_dbl(coef_quad, ~ .x[2]),  # Coefficient of input_rate (b)
+    a = map_dbl(coef_quad, ~ .x[3]),  # Coefficient of input_rate^2 (a)
+    c = map_dbl(coef_quad, ~ .x[1]),  # Intercept (c)
+    
+    # Calculate first and second derivatives
+    f_dv = pmap_dbl(list(a, b, opt_s), ~ 2 * ..1 * ..3 + ..2),  # First derivative: 2a * opt_s + b
+    s_dv = map_dbl(a, ~ 2 * .x),  # Second derivative: 2a
+    
+     # Find the input_rate that maximizes yield_hat for each group
+    ymsr = map_dbl(eval_s, ~ .x$input_rate[which.max(.x$yield_hat)]),  # ysmr is the input_rate at max yield_hat
+    
+    # Assign rest_type based on conditions
+    resp_type = case_when(
+      dif_s < 0 & a < 0 & ymsr == opt_s ~ "A1", #under_seed & corner sol
+       dif_s < 0 & a < 0 & ymsr != opt_s ~ "A2",
+      dif_s > 0 & a < 0& ymsr == opt_s ~ "B1", #over_seed & corner sol
+       dif_s > 0 & a < 0& ymsr != opt_s ~ "B2", #over_seed & corner sol
+        a > 0 ~ "C"
+    )
+  )
+
+
+
+
+not_in_price3 <-c('eval_s', 'quad_fit', 'coef_quad', 'b', 'a', 'c', 'f_dv', 's_dv', 'ymsr')
+
+est_fig_price3  <- est_type_all_price3  %>% dplyr::select(-all_of(not_in_price3))
+
+
+# Grouping by resp_type for dif_pro_seed_type
+est_fig_price3$resp_type <- factor(est_fig_price3$resp_type, levels = c('A1', 'A2', 'B1',"B2","C"))
+
+# Define colors for each resp_type using Viridis color scale
+group_colors_resp3 <- viridis(5)  # Viridis color scale with 4 colors
+
+# Define labels for the legend based on resp_type values
+group_labels_resp3 <- levels(est_fig_price3$resp_type)
+
+# Plot for resp_type
+dif_pro_seed_type_price3 <- ggplot(est_fig_price3 ) +
+  geom_point(aes(x = dif_s, y = dif_p, color = resp_type),size=3) +
+  scale_color_manual(
+    name = "Response Type",  # Legend title
+    values = group_colors_resp3,  # Colors for each resp_type
+    breaks = group_labels_resp3,  # Display the actual values in the legend
+    labels = group_labels_resp3,
+    guide = guide_legend(ncol = 1)# Use resp_type values as labels
+  ) +
+   geom_segment(aes(x = 0, y = -100, xend = 0, yend = 0), color = "black", size = 0.5,
+                linetype='dashed') +  # Add vertical line
+  scale_x_continuous(
+    breaks = seq(floor(min(est_fig_price3 $dif_s, na.rm = TRUE) / 5) * 5,
+                 ceiling(max(est_fig_price3 $dif_s, na.rm = TRUE) / 5) * 5,
+                 by = 5)  # Set breaks every 5 units
+  ) +
+  ylim(-100, 0) +  # Set y-axis limits
+  labs(
+    x = "SQSR - EOSR (K/ac)",
+    y = "Estimated Profit Difference($/ac)"
+  ) +
+  theme(
+    legend.position = "right",
+    legend.direction = "vertical",# Place the legend at the bottom
+     axis.title.x =  element_text(size = 16),
+    axis.text = element_text(size = 16),  # Increase axis text size
+ axis.title.y = element_text(size = 16),  # Increase x-axis title size
+    legend.title = element_text(size = 16),  # Increase legend title font size
+    legend.text = element_text(size = 16)    # Increase legend text font size
+  )
+
+
+
+
+est_price8 <-est_bind_list[[8]]
+
+est_price8 <- est_price8 %>%
+  mutate(dif_s = stq_s - opt_s,
+         dif_p = stq_p - opt_p,
+         dif_y = stq_y - opt_y)
+
+
+daymet_t_price8 <- daymet_t[daymet_t$ffy %in% est_price8$ffy, ]
+
+est_price8_day <-left_join(est_price8,daymet_t_price8, by = 'ffy')
+
+
+est_price8_day <- est_price8_day %>%
+  mutate(
+    yield = map_dbl(eval_s, ~ mean(.x$yield_hat, na.rm = TRUE))
+  ) %>% dplyr::select(-weather) %>%
+   mutate(gdd_tot = round(gdd_tot,0),
+          prcp_tot = round(prcp_tot,0))
+
+ 
+est_type_all_price8  <- est_price8_day  %>%
+  dplyr::select(ffy, opt_s,stq_s,dif_s, dif_p, dif_y, eval_s,farm_id,year,
+                gdd_tot,prcp_tot) %>%
+ mutate(
+    # Apply quadratic fit to each element in eval_s using map
+    quad_fit = map(eval_s, ~ lm(yield_hat ~ input_rate + I(input_rate^2), data = .x)),
+    
+    # Extract coefficients (a, b, c) from the quadratic fit using map
+    coef_quad = map(quad_fit, coef),
+    # Extract individual coefficients for each fit
+    b = map_dbl(coef_quad, ~ .x[2]),  # Coefficient of input_rate (b)
+    a = map_dbl(coef_quad, ~ .x[3]),  # Coefficient of input_rate^2 (a)
+    c = map_dbl(coef_quad, ~ .x[1]),  # Intercept (c)
+    
+    # Calculate first and second derivatives
+    f_dv = pmap_dbl(list(a, b, opt_s), ~ 2 * ..1 * ..3 + ..2),  # First derivative: 2a * opt_s + b
+    s_dv = map_dbl(a, ~ 2 * .x),  # Second derivative: 2a
+    
+     # Find the input_rate that maximizes yield_hat for each group
+    ymsr = map_dbl(eval_s, ~ .x$input_rate[which.max(.x$yield_hat)]),  # ysmr is the input_rate at max yield_hat
+    
+    # Assign rest_type based on conditions
+    resp_type = case_when(
+      dif_s < 0 & a < 0 & ymsr == opt_s ~ "A1", #under_seed & corner sol
+       dif_s < 0 & a < 0 & ymsr != opt_s ~ "A2",
+      dif_s > 0 & a < 0& ymsr == opt_s ~ "B1", #over_seed & corner sol
+       dif_s > 0 & a < 0& ymsr != opt_s ~ "B2", #over_seed & corner sol
+        a > 0 ~ "C"
+    )
+  )
+
+
+
+
+not_in_price8 <-c('eval_s', 'quad_fit', 'coef_quad', 'b', 'a', 'c', 'f_dv', 's_dv', 'ymsr')
+
+est_fig_price8  <- est_type_all_price8  %>% dplyr::select(-all_of(not_in_price8))
+
+
+# Grouping by resp_type for dif_pro_seed_type
+est_fig_price8$resp_type <- factor(est_fig_price8$resp_type, levels = c('A1', 'A2', 'B1',"B2","C"))
+
+# Define colors for each resp_type using Viridis color scale
+group_colors_resp8 <- viridis(5)  # Viridis color scale with 4 colors
+
+# Define labels for the legend based on resp_type values
+group_labels_resp8 <- levels(est_fig_price8$resp_type)
+
+# Plot for resp_type
+dif_pro_seed_type_price8 <- ggplot(est_fig_price8) +
+  geom_point(aes(x = dif_s, y = dif_p, color = resp_type),size=3) +
+  scale_color_manual(
+    name = "Response Type",  # Legend title
+    values = group_colors_resp8,  # Colors for each resp_type
+    breaks = group_labels_resp8,  # Display the actual values in the legend
+    labels = group_labels_resp8,
+    guide = guide_legend(ncol = 1)# Use resp_type values as labels
+  ) +
+   geom_segment(aes(x = 0, y = -100, xend = 0, yend = 0), color = "black", size = 0.5,
+                linetype='dashed') +  # Add vertical line
+  scale_x_continuous(
+    breaks = seq(floor(min(est_fig_price8 $dif_s, na.rm = TRUE) / 5) * 5,
+                 ceiling(max(est_fig_price8 $dif_s, na.rm = TRUE) / 5) * 5,
+                 by = 5)  # Set breaks every 5 units
+  ) +
+  ylim(-100, 0) +  # Set y-axis limits
+  labs(
+    x = "SQSR - EOSR (K/ac)",
+    y = "Estimated Profit Difference($/ac)"
+  ) +
+  theme(
+    legend.position = "right",
+    legend.direction = "vertical",# Place the legend at the bottom
+     axis.title.x =  element_text(size = 16),
+    axis.text = element_text(size = 16),  # Increase axis text size
+ axis.title.y = element_text(size = 16),  # Increase x-axis title size
+    legend.title = element_text(size = 16),  # Increase legend title font size
+    legend.text = element_text(size = 16)    # Increase legend text font size
+  )
+
+
+
+caption_price3 <- ggplot() + 
+  annotate("text", x = 0.5, y = 0.5, label = "At the Hihgest Seed cost over the Recent 10 Years ", 
+           size = 8, hjust = 0.5, vjust = 0.5) + 
+  theme_void()
+
+caption_price8 <- ggplot() + 
+  annotate("text", x = 0.5, y = 0.5, label = "At the Lowest Seed cost over the Recent 10 Years", 
+           size = 8, hjust = 0.5, vjust = 0.5) + 
+  theme_void()
+
+# Arrange the plots in a 3x2 grid with captions below each type of plot
+dif_pro_seed_type_price_3_8 <- (
+ dif_pro_seed_type_price3 / caption_price3 / 
+  dif_pro_seed_type_price8 / caption_price8
+) + plot_layout(ncol = 1, heights = c(6, 1, 6, 1))
+
+# Display the combined plot
+print(dif_pro_seed_type_price_3_8)
+
+ggsave(here("Figure","dif_pro_seed_type_price_3_8.png"), plot = dif_pro_seed_type_price_3_8 , width = 14, height = 12, units = "in")
+
+
+```
+
+##############################################
+##############################################
+Same Farm multi-year trial result comparison  
+###############################################
+###############################################
+
+# How difference the yield S response by fields
+# How difference the yield S response by year 
+# What about EOSR and SQSR and their profits?
+
+
+```{r Same Farm multi year trial result comparison   , cache = T, results = "hide"}
+## "CLC","Bohnhoff","Nelson","Hord","Gingerich","Gould"
+
+## Nelson, 2017,2018,2020,2022,2023
+## Hord 2018,2021,2022
+## Gingerich 2017,2018,2019,2022,2023
+## Gould 2019,2020,2022,2023
+
+
+create_farm_plot <- function(data) {
+  # Unnest and prepare data for plotting
+  data_processed <- data %>%
+    unnest(eval_s)
+  
+  # Extract unique `opt_s` and corresponding `yield_hat` values
+  unique_points <- data_processed %>%
+    group_by(ffy) %>%
+    filter(input_rate == unique(opt_s)) %>%
+    summarize(opt_s = unique(opt_s), yield_hat = unique(yield_hat), .groups = 'drop')
+  
+  # Create the plot
+  ggplot(data_processed, aes(x = input_rate, y = yield_hat, color = factor(farm_id))) +
+    geom_smooth(method = "loess", aes(fill = factor(ffy), color = factor(farm_id)), alpha = 0.3) +
+    geom_point(data = unique_points, aes(x = opt_s, y = yield_hat), color = 'red') +
+    scale_color_viridis_d(name = "Farm ID") +  # Use Viridis discrete color scale
+    labs(
+      x = "Seeding Rate (K/ac)",
+      y = "Estimated Yield (bu/ac)"
+    ) +
+    theme_minimal() +
+    theme(
+      legend.position = "none",  # Show legend on the right
+      legend.title = element_text(size = 12, face = "bold"),  # Customize legend title
+      legend.text = element_text(size = 10),  # Customize legend text
+      strip.text = element_text(size = 12),  # Customize facet labels
+      strip.background = element_rect(fill = "lightgrey")  # Background color for facet labels
+    )
+}
+
+
+# Assuming est_farm contains all the necessary data including farm_id
+type_a_1_plot <- create_farm_plot(est_type_a_1)
+
+# Save the plot
+ggsave(here("Figure","by_farm_resps_plot.png"), plot = farm_resp_plot, width = 8, height = 4, units = "in", dpi = 300)
+
+
+```
+
+
+
+########################################
+UNUSED FIGURES AND TABLES 
+############################################
+
+```{r unused figure table , cache = F, results = "hide"}
+
+
+####################################################################
+##### Table2 ( average by ten fields sort by SQSR-EOSR) ############
+####################################################################
+
+est_tab2 <- est_bind %>%
+  mutate(
+    dif_s = stq_s - opt_s,
+    dif_y = stq_y - opt_y ,
+    dif_p =  stq_p - opt_p 
+  ) %>%
+  arrange(desc(dif_s))
+
+# Calculate the range and break points for 10 groups
+breaks_dif_s <- quantile(est_tab2$dif_s, probs = seq(0, 1, length.out = 11), na.rm = TRUE)
+
+# Assign dif_s_range based on these breaks
+est_tab2$dif_s_rank = cut(est_tab2$dif_s, breaks = breaks_dif_s, include.lowest = TRUE, labels = FALSE)
+
+
+# 3. Generate labels for each range
+range_labels <- paste0("(", head(round(breaks_dif_s,2), -1), ", ", tail(round(breaks_dif_s,2), -1), "]")
+
+# 4. Create the dif_s_range variable with these labels
+est_tab2$dif_s_range <- range_labels[est_tab2$dif_s_rank]
+
+# Optional: Check the result
+head(est_tab2)
+
+### Average net benefit of switching from SQSR to EOSR
+mean(est_tab2$opt_s)
+mean(est_tab2$stq_s)
+
+mean(abs(est_tab2$dif_p))
+
+
+mean(abs(est_tab2$dif_s))
+
+### stq_s > opt_s
+          
+os_field <-  length((which(est_tab2$dif_s> 0)))
+os_prof <-round(abs(mean(est_tab2$dif_p[(which(est_tab2$dif_s> 0))])),1)
+os_stq_s <- round(mean(est_tab2$stq_s[(which(est_tab2$dif_s> 0))]),1)
+os_opt_s <- round(mean(est_tab2$opt_s[(which(est_tab2$dif_s> 0))]),1)
+
+### stq_s < opt_s
+
+us_field <-  length((which(est_tab2$dif_s < 0)))
+us_prof <-round(abs(mean(est_tab2$dif_p[(which(est_tab2$dif_s < 0))])),1)
+us_stq_s <- round(mean(est_tab2$stq_s[(which(est_tab2$dif_s < 0))]),1)
+us_opt_s <- round(mean(est_tab2$opt_s[(which(est_tab2$dif_s < 0))]),1)
+
+
+
+
+
+### I want to make summary table by using kable
+### the table need to be made under the group_by(dif_rank) 
+### each column need to show the mean and standard deviation of variable
+### the columns will be  dif_s,  dif_y, dif_p, opt_s, opt_y_s, opt_p_s.
+### also, the name of the column should be renamed as
+### "Seeding Rate(K/ac)",'Estimated Yield(bu/ac)", "Estimated Profit($/ac)", ""Seeding Rate(K/ac)",'Estimated Yield(bu/ac)", "Estimated Profit($/ac)".
+### Ane this table requires two header for column(1:3) and column(4:6)
+### the header will be "Difference by SQSR and EOSR" and " EOSR"
+
+library(dplyr)
+library(tidyr)
+library(knitr)
+library(kableExtra)
+
+# Calculate summary statistics
+summary_tab2 <- est_tab2 %>%
+  group_by(year,state) %>% 
+   arrange(year) %>%
+  summarize(
+    field_number = n(),
+    mean_dif_s = mean(dif_s, na.rm = TRUE),
+    sd_dif_s = sd(dif_s, na.rm = TRUE),
+    mean_dif_y = mean(dif_y, na.rm = TRUE),
+    sd_dif_y = sd(dif_y, na.rm = TRUE),
+    mean_dif_p = mean(dif_p, na.rm = TRUE),
+    sd_dif_p = sd(dif_p, na.rm = TRUE),
+    mean_opt_s = mean(opt_s, na.rm = TRUE),
+    sd_opt_s = sd(opt_s, na.rm = TRUE),
+    mean_opt_y = mean(opt_y, na.rm = TRUE),
+    sd_opt_y = sd(opt_y, na.rm = TRUE),
+    mean_opt_p = mean(opt_p, na.rm = TRUE),
+    sd_opt_p = sd(opt_p, na.rm = TRUE)
+  )
+
+# Combine means and standard deviations into a single format
+
+result_tab2 <- summary_tab2 %>%
+  mutate(
+      `Field Count` = field_number,
+     `Seeding Rate(K/ac)` = paste0(round(mean_opt_s, 2), "<br> (", round(sd_opt_s, 2), ")"),
+    `Estimated Yield(bu/ac)` = paste0(round(mean_opt_y, 2), " <br>(", round(sd_opt_y, 2), ")"),
+    `Estimated Profit($/ac)` = paste0(round(mean_opt_p, 2), " <br>(", round(sd_opt_p, 2), ")"),
+    `Seeding Rate(K/ac) - EOSR` = paste0(round(mean_dif_s, 2), "<br> (", round(sd_dif_s, 2), ")"),
+    `Estimated Yield(bu/ac) - EOSR` = paste0(round(mean_dif_y, 2), "<br> (", round(sd_dif_y, 2), ")"),
+    `Estimated Profit($/ac) - EOSR` = paste0(round(mean_dif_p, 2), "<br> (", round(sd_dif_p, 2), ")")
+  ) %>%
+  dplyr::select(year,state,  `Field Count`,`Seeding Rate(K/ac)`, `Estimated Yield(bu/ac)`, `Estimated Profit($/ac)`,`Seeding Rate(K/ac) - EOSR`, `Estimated Yield(bu/ac) - EOSR`, `Estimated Profit($/ac) - EOSR`)
+
+
+# Create and format the table with kable
+
+res_tab2 <- result_tab2 %>%
+  kable("html", escape = FALSE, col.names = c(
+    
+    "Yeaer","State","Field <br>Counts",
+    "Seeding Rate (K/ac)", "Estimated Yield (bu/ac)", "Estimated Profit ($/ac)",
+    "Seeding Rate (K/ac)", "Estimated Yield (bu/ac)", "Estimated Profit ($/ac)"
+  )) %>%
+ kable_styling(
+    position = "center",
+    # Additional CSS for header alignment
+    latex_options = "hold_position",
+    full_width = FALSE,
+    html_font = "Arial",
+    bootstrap_options = c("striped", "hover", "condensed"),
+    font_size = 10
+  ) %>%
+     add_header_above(c("-"=3,"EOSR" = 3," Differences between SQSR and EOSR" =3 ), align = "c") %>%
+  row_spec(0, bold = TRUE, extra_css = "text-align: center;") %>%
+  column_spec(1:ncol(data_tab2), extra_css = "text-align: center;") 
+
+
+
+####
+
+
+writeLines(res_tab2
+, "result_tab2.html")
+
+library(webshot2)
+
+# Convert HTML to PNG
+webshot("result_tab2.html", file = "result_tab2.png", vwidth = 600, vheight = 700)
+
+
+
+###########################################
+#### SQSR , EOSR COMPARISON TABLE #####
+###########################################
+est_stq <- est_bind %>%
+  arrange(stq_s) %>%                    # Arrange by 'stq_s'
+  mutate(row_number = 1:nrow(.))        # Update row_number based on the new order
+
+ 
+library(RColorBrewer)
+
+# Define grayscale colors for each range
+gray_colors <- c("22~24" = "#D3D3D3",    # Light gray
+                  "28~30" = "#A9A9A9",    # Darker gray
+                  "32~33.5" = "#808080",   # Medium gray
+                  "34~35.5" = "#595959",   # Even darker gray
+                  "36~38" = "#333333")     # Darkest gray
+
+
+green_colors <- c("22~24" = "#D0F0C0",    # Pale green
+                   "28~30" = "#9ACD32",    # Yellow-green
+                   "32~33.5" = "#6B8E23",   # Olive drab
+                   "34~35.5" = "#3C6B5E",   # Darker green
+                   "36~38" = "#004d00")     # Very dark green
+
+# Define the ranges for the grayscale colors
+range_breaks <- c(21, 24, 30, 33.5, 35.5, 38)
+
+# Create a new factor variable that maps each stq_s to its corresponding range
+
+est_stq$stq_s_range <- cut(
+  est_stq$stq_s,
+  breaks = range_breaks,
+  labels = names(green_colors),
+  right = TRUE
+)
+
+# Ensure the color mapping is based on the levels of the factor variable
+color_mapping <- green_colors[levels(est_stq$stq_s_range)]
+
+# Create the plot
+opt_stq_by_stq <- ggplot(est_stq, aes(x = row_number, y = diff_s, fill =stq_s_range)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = state), y = 0, hjust = 0.5, size = 2, color = "black") +  # Place text at y = 0
+  labs(x = "Status Quo Seeding Rate", y = "Optimal - Status Quo Seeding Rate", title = "Difference Between Optimal and Status Quo Seeding Rate", fill = "Status Quo Seeding Rate Range") +
+  scale_fill_manual(values = color_mapping) +  # Use grayscale colors
+  theme_minimal() +
+  scale_x_continuous(
+    breaks = NULL,  # Remove breaks
+    labels = NULL   # Remove labels
+  ) +
+  theme(
+    axis.text.x = element_blank(),  # Remove x-axis text
+    axis.ticks.x = element_blank()  # Remove x-axis ticks
+  )
+
+# Print the plot
+print(opt_stq_by_stq)
+
+
+##########################
+ggsave("opt_stq_by_stq.pdf", plot = opt_stq_by_stq, width = 16, height = 6)
+###########################
+
+
+# Create a new factor variable that maps each stq_s to its corresponding range
+
+# Sort the data by year and stq_s
+est_year <- est_stq %>%
+  arrange(year, stq_s) %>% 
+   mutate(row_number = 1:nrow(.)) 
+
+est_year <- est_stq %>%
+  arrange(year, stq_s) %>% 
+  group_by(year) %>% 
+  mutate(row_number = row_number()) %>% 
+  ungroup()
+
+
+# Calculate the range for y-axis
+y_limits <- range(est_year$diff_s, na.rm = TRUE)
+
+# Ensure the color mapping is based on the levels of the factor variable
+color_mapping <- green_colors[levels(est_year$stq_s_range)]
+
+# Create the faceted plot
+opt_stq_by_year <- ggplot(est_year, aes(x = row_number, y = diff_s, fill = stq_s_range)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = state), y = 0, hjust = 0.5, size = 2, color = "black") +  # Place text at y = 0
+  labs(x = "Status Quo Seeding Rate", y = "Optimal - Status Quo Seeding Rate", title = "Difference Between Optimal and Status Quo Seeding Rate", fill = "Status Quo Seeding Rate Range") +
+  scale_fill_manual(values = color_mapping) +  # Use grayscale colors
+  theme_minimal() +
+  scale_x_continuous(
+    breaks = NULL,  # Remove breaks
+    labels = NULL   # Remove labels
+  ) +
+  scale_y_continuous(
+    limits = y_limits,  # Set the y-axis limits
+    breaks = seq(floor(y_limits[1]), ceiling(y_limits[2]), by = (ceiling(y_limits[2]) - floor(y_limits[1])) / 5)  # Adjust breaks based on range
+  ) +
+  theme(
+    axis.text.x = element_blank(),  # Remove x-axis text
+    axis.ticks.x = element_blank()  # Remove x-axis ticks
+  ) +
+  facet_wrap(~ year, scales = "fixed")  # Fixed scales for consistent y-axis
+
+# Print the faceted plot
+print(opt_stq_by_year)
+
+
+##########################
+ggsave("opt_stq_by_year.pdf", plot = opt_stq_by_year, width = 16, height = 12)
+###########################
+ 
+
+################
+##### By Farm
+#####################
+
+### First check how many trials by farm #####
+
+
+farm_counts <- est_bind %>%
+  group_by(farm) %>%       # Group by 'farm'
+  summarize(count = n())  %>%# Count the number of rows in each group
+   filter(count >2)
+
+print(farm_counts,n=11)
+
+
+
+
+ est_bind_part <- est_bind %>%
+  arrange(diff_s) %>%
+   filter(diff_s < quantile(diff_s, 0.25) | diff_s > quantile(diff_s, 0.75))
+  
+
+ ########################################################
+###### Yield respone , opt_s, stq_s, usda_s. ###########
+########################################################
+
+
+plots_yield_seed <- list()
+
+
+
+for (i in 1:nrow(est_bind_part)) {
+  # Extract data for the current row
+  comb_i <- est_bind_part[i,]
+  eval_i <-est_bind_part[i,]$eval[[1]]
+  dat_i <-est_bind_part[i,]$anal[[1]]
+  opt_s_y_i <- est_bind_part[i,]$opt_s_y_ffy[[1]]
+ 
+   # Add ff_id to eval_data
+  eval_i$ff_id <-comb_i$ff_id
+  
+  # Create a scatter plot of yield response to seed
+  plot <- ggplot(eval_i, aes(x=input_rate,y=yield_hat)) +
+  #  geom_point(data=dat_i,aes(x=s_rate,y=yield))+
+    geom_smooth(method = "gam", se = TRUE, size = 0.5, color = 'brown',lwd=1,
+                alpha=0.5)+
+    geom_point(dat=dat_i,aes(x=s_rate,y=yield),alpha=0.5, size=0.1) +
+    geom_point(dat=opt_s_y_i, aes(x=opt_s_ffy,y=opt_y_ffy),color = "blue",size=0.25)+
+  
+   # labs(title = paste(il_dk_sel$ff_id[i])) +  # Add experiment title
+    xlab("Seed") + ylab("Yield") +
+    xlim(15, 40) + ylim(100, 275) +
+      
+    geom_hline(yintercept = comb_i$stq_y, color = "red", lty = 'dashed', lwd = 0.5) +
+      geom_point(x= comb_i$stq_s, y = comb_i$stq_y, color = "red",size=0.5) +
+
+        geom_hline(yintercept = comb_i$opt_y, color = "blue", lty = 'dashed', lwd = 0.5) +
+      geom_point(x= comb_i$opt_s, y = comb_i$opt_y, color = "blue",size=0.5) +
+
+    
+     geom_hline(yintercept = comb_i$usda_y, color = "green", lty = 'dashed', lwd = 0.5,alpha=0.5) +
+      geom_point(x= comb_i$usda_s, y = comb_i$usda_y, color = "green",size=0.5) +
+    # Add vertical line for status quo
+    theme(
+      axis.title = element_text(size = 6),  # Adjust axis title font size
+      axis.text = element_text(size = 6),   # Adjust axis text font size
+      plot.title = element_text(size = 8),  # Adjust plot title font size
+      panel.spacing = unit(0, "lines")      # Remove space between facets
+    ) +
+    facet_wrap(~ ff_id, ncol = 6, scales = "free")  # Use facet_wrap to arrange plots
+    
+  # Add the plot to the list
+  plots_yield_seed[[i]] <- plot
+}
+
+
+ 
+
+
+opt_stq_state_year <-ggplot(est_year, aes(x = row_number, y = diff_s, fill = factor(year))) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = state), vjust = -0.5,size=2) +
+  labs(x = "Field", y = "Optimal Seeding - Status quo Seeding", title = "Difference between optimal seeding and status quo seeding by state and year", fill = "Year") +
+  scale_fill_brewer(palette = "Set1") +  # Use a color palette
+  theme_minimal()
+
+ggsave("opt_stq_seeding_state_year.pdf", plot = opt_stq_state_year, width = 8, height = 6)
+
+
+custom_colors <- viridis(25)
+est_farm <- est_bind %>% arrange(year)
+est_farm$row_number <- 1:nrow(est_farm)
+
+
+opt_stq_farm_year <-ggplot(est_farm, aes(x = row_number, y = diff_s, fill = factor(farm_id))) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = farm_id), vjust = -0.5,size=2) +
+  labs(x = "Field", y = "Optimal Seeding - Status quo Seeding", title = "Difference between optimal seeding and status quo seeding by farm and year", fill = "farm_id") +
+scale_fill_viridis(discrete = TRUE, option = "D") +  # Use a color palette
+   theme_minimal()
+
+hist(est_farm$stq_s)
+
+ggsave("opt_stq_seeding_farm_year.pdf", plot = opt_stq_farm_year, width = 8, height = 6)
+
+
+
+
+ 
+ 
+ 
+ ### First
+### Look at the IL by year
+
+est_bind_il <- est_bind %>% filter(state == 'IL') %>%
+  arrange(year)
+
+
+
+
+
+
+
+#### Check est_bind_part by 
+
+
+
+
+# Loop through each row
+
+est_bind_il
+
+
+
+
+
+est_bind_part <- est_bind %>%
+  arrange(diff_s) %>%
+   filter(diff_s < quantile(diff_s, 0.25) | diff_s > quantile(diff_s, 0.75))
+  
+########################################################
+###### Yield respone , opt_s, stq_s, usda_s. ###########
+########################################################
+
+
+plots_yield_seed <- list()
+
+
+
+for (i in 1:nrow(est_bind_part)) {
+  # Extract data for the current row
+  comb_i <- est_bind_part[i,]
+  eval_i <-est_bind_part[i,]$eval[[1]]
+  dat_i <-est_bind_part[i,]$anal[[1]]
+  opt_s_y_i <- est_bind_part[i,]$opt_s_y_ffy[[1]]
+ 
+   # Add ff_id to eval_data
+  eval_i$ff_id <-comb_i$ff_id
+  
+  # Create a scatter plot of yield response to seed
+  plot <- ggplot(eval_i, aes(x=input_rate,y=yield_hat)) +
+  #  geom_point(data=dat_i,aes(x=s_rate,y=yield))+
+    geom_smooth(method = "gam", se = TRUE, size = 0.5, color = 'brown',lwd=1,
+                alpha=0.5)+
+    geom_point(dat=dat_i,aes(x=s_rate,y=yield),alpha=0.5, size=0.1) +
+    geom_point(dat=opt_s_y_i, aes(x=opt_s_ffy,y=opt_y_ffy),color = "blue",size=0.25)+
+  
+   # labs(title = paste(il_dk_sel$ff_id[i])) +  # Add experiment title
+    xlab("Seed") + ylab("Yield") +
+    xlim(15, 40) + ylim(100, 275) +
+      
+    geom_hline(yintercept = comb_i$stq_y, color = "red", lty = 'dashed', lwd = 0.5) +
+      geom_point(x= comb_i$stq_s, y = comb_i$stq_y, color = "red",size=0.5) +
+
+        geom_hline(yintercept = comb_i$opt_y, color = "blue", lty = 'dashed', lwd = 0.5) +
+      geom_point(x= comb_i$opt_s, y = comb_i$opt_y, color = "blue",size=0.5) +
+
+    
+     geom_hline(yintercept = comb_i$usda_y, color = "green", lty = 'dashed', lwd = 0.5,alpha=0.5) +
+      geom_point(x= comb_i$usda_s, y = comb_i$usda_y, color = "green",size=0.5) +
+    # Add vertical line for status quo
+    theme(
+      axis.title = element_text(size = 6),  # Adjust axis title font size
+      axis.text = element_text(size = 6),   # Adjust axis text font size
+      plot.title = element_text(size = 8),  # Adjust plot title font size
+      panel.spacing = unit(0, "lines")      # Remove space between facets
+    ) +
+    facet_wrap(~ ff_id, ncol = 6, scales = "free")  # Use facet_wrap to arrange plots
+    
+  # Add the plot to the list
+  plots_yield_seed[[i]] <- plot
+}
+
+
+# Save the plots side by side using grid.arrange
+
+# Save the plots side by side using grid.arrange
+ggsave(filename = "combined_yield_seed_by_diff_seeding.pdf", plot = grid.arrange(grobs =  plots_yield_seed, ncol = 6), width = 48, height = 48)
+
+
+######### Now, we need to check 
+#####. 1. by state and year (to see how diff opt,stq, usda)
+####. 2. by negative and positive ( opt < stq ,  opt > stq )
+####. After that look into the characteristics or weather situation 
+
+comb_df <- comb_df %>%
+  mutate(ff = str_extract(ff_id, "^[^_]+_[^_]+"))
+
+#opt_s, stq_s, usda_s
+
+### Okay, BARPLOT DOES NOT LOOK GOOD AT ALL
+### Let's make table instead 
+### table of opt_s,stq_s,usda_s by state and year on the left side
+### table of opt_p,stq_p, usda_p by  state and year on the right side 
+### (or make separate table for seed and profit)
+
+library(knitr)
+library(kableExtra)
+
+
+comb_df<-readRDS(here("comb_df.RDS"))
+
+# Arrange and round the relevant columns
+table_df <- comb_df %>%
+  arrange(year, state) %>%
+  mutate(opt_s = round(opt_s, 1)) %>%
+  dplyr::select(year, state, ff, opt_s, stq_s, usda_s)
+
+# Create a list to store the tables
+tables_list <- list()
+
+# Loop through each unique combination of year and state
+unique_years <- unique(table_df$year)
+unique_states <- unique(table_df$state)
+
+# Generate tables and store them in a list
+for (year_i in unique_years) {
+  for (state_i in unique_states) {
+    subset_df <- table_df %>%
+      filter(year == year_i & state == state_i) %>%
+      dplyr::select(ff, opt_s, stq_s, usda_s)  # Exclude year and state columns from the subset
+    
+    table_caption <- paste("Year:", year_i, "State:", state_i)
+    
+    tables_list[[paste(state_i, year_i, sep = "_")]] <- kable(subset_df, format = "html", caption = table_caption) %>%
+      kable_styling("striped", full_width = FALSE)
+  }
+}
+
+# Create a grid layout for the tables
+cat("<div style='display: grid; grid-template-columns: repeat(8, 1fr); gap: 20px;'>")
+
+# Header row for years
+cat("<div></div>") # Empty top-left cell
+for (year_i in unique_years) {
+  cat(paste("<div style='font-weight: bold; text-align: center;'>Year:", year_i, "</div>"))
+}
+
+# Rows for states
+for (state_i in unique_states) {
+  cat(paste("<div style='font-weight: bold; text-align: center;'>State:", state_i, "</div>")) # State label
+  for (year_i in unique_years) {
+    table_id <- paste(state_i, year_i, sep = "_")
+    if (!is.null(tables_list[[table_id]])) {
+      cat("<div style='border: 1px solid #ddd; padding: 10px;'>")
+      print(tables_list[[table_id]])
+      cat("</div>")
+    } else {
+      cat("<div style='border: 1px solid #ddd; padding: 10px;'>No Data</div>")
+    }
+  }
+}
+cat("</div>")
+
+
+
+
+  # Reshape the data
+comb_long <- comb_df %>%
+  pivot_longer(cols = c(opt_s, stq_s, usda_s), names_to = "variable", values_to = "value")
+
+
+# Create a ggplot object for horizontal barplot with faceting
+p <- ggplot(comb_long, aes(y = ff, x = value, fill = variable)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  facet_grid(year ~ state, scales = "free_y", space = "free_y") +
+  theme_minimal() +
+  labs(y = "ff", x = "Value", fill = "Variable") +
+  theme(axis.text.y = element_text(angle = 0, hjust = 1))
+
+# Print the plot
+print(p)
+
+
+
+under_seed_prec <- ggplot(combined_us) +
+  geom_point(aes(x =status_quo - opt_s,y=prec_in, color = "Under Seed Density"))+
+ labs(title = "O",
+       y = "Experiment ID",
+       x = "Seed Rates",
+       fill = "Seed Rates") +
+  scale_fill_manual(values = c("blue", "red")) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 0),
+        legend.position = "bottom")
+
+  geom_point(aes(x = status_quo,y=prec_in,color='Status Quo Seed'))
+
+  geom_bar(aes(x = status_quo, fill = "Status Quo"), stat = "identity", position = position_nudge(y = 0.1),width=0.2) +
+  labs(title = "Opt Input vs Status Quo",
+       y = "Experiment ID",
+       x = "Seed Rates",
+       fill = "Seed Rates") +
+  scale_fill_manual(values = c("blue", "red")) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 0),
+        legend.position = "bottom")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+###### 2. Estimated profit by opt_s, stq_s, usda_s
+###### by state and year
+
+
+
+
+
+
+
+
+
+
+
+
+## 50 from IL, OK 10 , SD 12, OH4, MN2, KS1
+## 
+
+ggplot(combined_us, aes(x = status_quo)) +
+  geom_histogram(binwidth = 0.5, fill = "skyblue", color = "black", alpha = 0.7) +
+  labs(title = "Histogram of Status Quo",
+       x = "Status Quo",
+       y = "Frequency")
+
+
+# Create the thematic map
+tm_shape(us_map) +
+  # Specify the fill color or pattern for the polygons using Viridis color scale
+  tm_fill(col = "grey" ) +
+  
+  # Overlay the points on top of the polygons
+  tm_shape(combined_us) +
+  # Specify the points and their properties
+  tm_dots(col = "farm",palette = "viridis") +
+
+  # Customize legend position
+  tm_layout(legend.outside = TRUE, legend.position = c("right", "bottom"))
+
+tm_tgts <- tm_shape(trial_s) +
+  tm_fill(
+    col = "tgts_K", 
+    palette = "Greens",
+     title = "Seed (Thou/ac)",
+    style = "cat",
+  
+  )
+
+
+status_quo_prec <- ggplot(combined_us) +
+  geom_point(aes(x =  prec_in, y =status_quo, color =state_name)) +
+  labs(title = "In Season Average Precipitation and Status_quo Seed Rate ",
+       y = "Status Quo Seed rate",
+       x = "Precipitation",
+  ) +  scale_color_viridis_d(option = "C") +  # Use Viridis color scale
+  theme_minimal()
+
+ggsave("status_quo_prec.png", plot = status_quo_prec, width = 5, height = 5, units = "in")
+
+
+
+
+opt_prec <- ggplot(combined_us) +
+  geom_point(aes(x = prec_in, y =opt_s , color =state_name)) +
+  labs(title = "In Season Average Precipitation and Estimated Optimal Seed Rate ",
+       y = "Estimated Opt Seed rate",
+       x = "Precipitation",
+  ) +  scale_color_viridis_d(option = "C") +  # Use Viridis color scale
+  theme_minimal()
+
+
+ggsave("opt_prec.png", plot = opt_prec, width = 5, height = 5, units = "in")
+
+
+######### 
+##combined_us
+##
+## 1. Trials by year and state
+## 2. Trials by year and location
+## 3. 
+
+
+###### Now take 2022 fields figures 
+# 
+# plot_list <- list() 
+# 
+# for (i in include_plots) {
+#   # Create the yield-seed response curve
+#   s_rate_range <- range(eval_bind[[i]][[1]]$input_rate, na.rm = TRUE)
+#   opt_seed <- opt_bind[[i]][[1]]$opt_input
+#   
+#   status_quo <- status_quo_bind[[i]][[1]]
+#   if(status_quo > 1000){
+#     status_quo <- status_quo / 1000
+#   }  
+# # Create the yield-seed curve plot
+# yield_seed_curve <- ggplot(data_anal_bind[[i]], aes(x = s_rate, y = yield)) +
+#   geom_point() +
+#   geom_point(data=eval_bind[[i]][[1]], aes(x=input_rate, y= yield_hat),col='pink',size=0.5) +
+#  geom_vline(xintercept = opt_seed, color = "green", linetype = "dashed",
+#             lwd=1) +
+#  geom_vline(xintercept = status_quo, color = "blue", linetype = "dashed",
+#             lwd=1) +
+#   geom_smooth(method = "lm", formula = y ~ poly(x, 2), se = FALSE, color='yellow',lwd=0.5) +
+#   labs(title = paste(combined_df[i]$exp_id, "Yield-Seed Response"),
+#        x = "Seed(k/ac)", y = "Yield(bu/ac)") +
+#   xlim(s_rate_range) + # Set x-axis limits
+#   annotate("text", x = opt_seed, y = max(data_anal_bind[[i]]$yield), 
+#            label = "opt_seed", color = "green", fontface = "italic") +
+#    annotate("text", x = status_quo, y = max(data_anal_bind[[i]]$yield), 
+#            label = "status_quo", color = "blue", fontface = "italic")
+#  
+# 
+# ggsave(filename = here("save_image_2022",paste0(combined_df[i]$exp_id,"_yield_seed.png")),
+#        plot = yield_seed_curve)
+# 
+# 
+# plot_list[[i]] <- yield_seed_curve
+# 
+# 
+# 
+# }
+# 
+# saveRDS(plot_list, here("save_image","plot_list.rds"))
+
+
+
+
+
+
+#################################
+# 1.pick one field and create a map of seed rate experimental design and yield map
+#########################
+
+breaks <- c(50, 75, 100, 125, 150, 175, 200, 225, 250)
+
+tm_tgts <- tm_shape(trial_s) +
+  tm_fill(
+    col = "tgts_K", 
+    palette = "Greens",
+     title = "Seed (Thou/ac)",
+    style = "cat",
+  
+  ) +
+  tm_layout_to_add + 
+  tm_layout(
+     legend.text.size = 0.8,
+              legend.title.size=1
+)
+
+
+tm_yield <- tm_shape(yield) +
+  tm_dots(
+    col = "Yld_Vol_Dr", 
+    palette = "YlOrBr",
+    title = "Yield (bu/ac)",
+    style = "cont",  # Change style to continuous
+    breaks = breaks
+  ) +
+  tm_layout_to_add + 
+  tm_layout(
+    legend.outside.position = "right",
+    legend.position = c(0.01, 0.25),
+    legend.text.size = 0.8,
+    legend.title.size = 1
+  ) 
+
+###################################
+# 2.the yield response figure for the six fields with consistent y-axis and x-axis
+#######################################
+
+
+# Initialize list to store plots
+plots_yield_seed <- list()
+
+# Loop through each row of il_dk_sel
+for (i in 1:nrow(combined_df)) {
+  # Extract data for the current row
+  eval_data <-combined_df$eval_data[[i]]
+  
+   # Add ff_id to eval_data
+  eval_data$ff_id <-combined_df$ff_id[i]
+  
+  # Create a scatter plot of yield response to seed
+  plot <- ggplot(eval_data, aes(x = input_rate, y = yield_hat)) +
+    geom_smooth(method = "gam", se = TRUE, size = 0.5, color = 'black') +
+   # labs(title = paste(il_dk_sel$ff_id[i])) +  # Add experiment title
+    xlab("Seed") + ylab("Yield") +
+    xlim(15, 40) + ylim(100, 275) +
+    geom_vline(xintercept = combined_df$status_quo[i], color = "red", lty = 'dashed', lwd = 0.5) +  # Add vertical line for status quo
+    geom_vline(xintercept = combined_df$opt_input[i], color = "blue", lty = 'dashed', lwd = 0.5) +   # Add vertical line for optimal input
+    theme(
+      axis.title = element_text(size = 6),  # Adjust axis title font size
+      axis.text = element_text(size = 6),   # Adjust axis text font size
+      plot.title = element_text(size = 8),  # Adjust plot title font size
+      panel.spacing = unit(0, "lines")      # Remove space between facets
+    ) +
+    facet_wrap(~ ff_id, ncol = 6, scales = "free")  # Use facet_wrap to arrange plots
+    
+  # Add the plot to the list
+  plots_yield_seed[[i]] <- plot
+}
+
+# Save the plots side by side using grid.arrange
+
+# Save the plots side by side using grid.arrange
+ggsave(filename = "combined_yield_seed.pdf", plot = grid.arrange(grobs =  plots_yield_seed, ncol = 6), width = 12, height = 20)
+
+
+#######################################
+# 3. table of profit loss of using the farmer-chosen rate relative to EOSR for all the fields
+##############################
+
+combined_df$opt_profit<- 1
+combined_df$sq_profit<- 1
+
+for(i in 1:length(combined_df$exp_id)){
+  
+   opt_row<- which.min(abs(combined_df$eval_data[[i]]$input_rate -combined_df[i,]$opt_input))
+   
+  sq_row<- which.min(abs(combined_df$eval_data[[i]]$input_rate -combined_df[i,]$status_quo))
+  
+combined_df$opt_profit[i] <-  combined_df$eval_data[[i]]$profit_hat[opt_row]
+
+combined_df$sq_profit[i] <-  combined_df$eval_data[[i]]$profit_hat[sq_row]
+}
+
+# Calculate the differences between opt_profit and sq_profit by ff_id
+combined_df <- combined_df %>%mutate(prof_dif = opt_profit - sq_profit)
+
+
+# Determine the range for breaks
+min_prof_dif <- floor(min(combined_df$prof_dif))
+max_prof_dif <- ceiling(max(combined_df$prof_dif))
+
+# Create bar plot with adjusted bar size and spacing
+bar_plot <- ggplot(combined_df, aes(x = prof_dif, y = ff_id)) +
+  geom_bar(stat = "identity", fill = "red", color = "black", size = 0.4, width = 0.5) +  # Adjust width here
+  scale_y_discrete(expand = expansion(add = c(0.05, 0.05))) +  # Adjust vertical spacing between bars
+  scale_x_continuous(breaks = seq(min_prof_dif, max_prof_dif, by = 10)) +  # Adjust x-axis breaks
+  labs(title = "Net Revenue loss by applying farmer's status quo",
+       x = "Revenue Loss ($/ac)",
+       y = "Field ID") +
+  theme_minimal()
+
+# Save horizontal bar plot to PDF
+ggsave("prof_dif_barplot.pdf", plot = bar_plot,width = 8, height = 15, units = "in")
+
+
+```
+
+
+
