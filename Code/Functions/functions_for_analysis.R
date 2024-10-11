@@ -103,7 +103,7 @@ run_and_evaluate_gams <- function(gam_formulas, data) {
     gam_gcv <- gam(best_gcv, data = data, method = "GCV.Cp")
     
 
- return(list(gam_gcv = gam_gcv, best_gcv = best_gcv))
+ return(list(gam_best = gam_gcv))
 }
 
 

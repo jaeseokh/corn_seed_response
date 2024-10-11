@@ -204,7 +204,10 @@ for(i in 1:length(ffy_merged_dat)) {
    usdsr_y = eval_tb[which.min(abs(s_rate - info_tb$usdsr)), yield_hat], 
    usdsr_p = eval_tb[which.min(abs(s_rate - info_tb$usdsr)), profit_hat_year],
    sqsr_y = eval_tb[which.min(abs(s_rate - info_tb$sqsr)), yield_hat], 
-  sqsr_p = eval_tb[which.min(abs(s_rate - info_tb$sqsr)), profit_hat_year]
+   sqsr_p = eval_tb[which.min(abs(s_rate - info_tb$sqsr)), profit_hat_year],
+   ymsr = eval_tb[which.max(yield_hat), s_rate],
+   ymsr_p = eval_tb[which.max(yield_hat), profit_hat_year],
+   ymsr_y = eval_tb[which.max(yield_hat), yield_hat]
     )]
 
   # Write the updated info_tb back to file
@@ -217,8 +220,6 @@ for(i in 1:length(ffy_merged_dat)) {
 
  saveRDS(best_gam_list, here("Data", "Processed", "Analysis_results", "best_gam_list.rds"))
  saveRDS(info_tb_list, here("Data", "Processed", "Analysis_results", "info_tb_list.rds"))
-
-
 
 
 

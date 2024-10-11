@@ -2,6 +2,7 @@ library(here)
 library(data.table)
 library(magrittr)
 library(dplyr)
+library(sf)
 
 ### Variable name uniformity  ##
 
