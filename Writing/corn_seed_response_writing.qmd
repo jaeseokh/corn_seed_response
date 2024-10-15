@@ -45,8 +45,7 @@ keypoints:
   - Farmer's chosen seeding rates is high and not profitable
   - need more
 bibliography: bibliography.bib
-# csl: qje.csl
-csl: pnas.csl
+csl: qje.csl
 ---
 
 ```{r}
@@ -72,6 +71,7 @@ library(flextable)
 library(ggplot2)
 library(sf)
 library(patchwork)
+library(gt)
 
 ```
 
@@ -94,20 +94,39 @@ From the early 1970s, for about 50 years, maize yield in U.S. has been gradually
 
 The increase in yield enhances the net revenue of farmer, with the relatively cheap cost of seed, while the seeding rate has increased during the late 20th century for 30years, from 1970s to 1990s. However,  from the 2000s, there has been a fluctuation in seed cost and the portion of the seed cost in the total operation cost increased a lot (@saavoss2021trends).  As a result, the portion of total seed cost and fertilizer cost in the operation cost became much closer, and the benefit of the estimated Economically Optimum Seeding Rate (EOSR) has been increased in terms of saving operation cost and enhancing total revenue of corn production.
 
-```{r fig1-rev-seed-comb, fig.cap="Net revenue after seed cost figure 1996 to 2023"}
+```{r fig-rev_seed_comb, fig.cap="Net revenue after seed cost figure (1996 to 2023)", fig.width=18, fig.height=12, out.width="100%"}
+
 #| label: "fig1-rev-seed-comb"
 #| fig-cap: " Net revenue after seed cost figure 1996 to 2023"
 #| out-width: 80%
 #| out-height: 80% # this does not have any effect
 rev_seed_comb <-readRDS(here("Results","Figures","fig1_rev_after_seed.rds"))
 
-rev_seed_comb
+   fig1_rev_seed <-rev_seed_comb  +
+  plot_layout(ncol = 2) +
+  plot_annotation(
+    title = "Net Revenue After Seed Cost",
+    subtitle = "Left: Non-Adjusted | Right: PPI Adjusted",
+    theme = theme(
+      plot.title = element_text(size = 24, hjust = 0.5),         # Increase title size
+      plot.subtitle = element_text(size = 20, hjust = 0.5),      # Increase subtitle size
+      plot.margin = margin(t = 10, r = 10, b = 60, l = 10)
+    )
+  ) &
+  theme(
+    axis.title = element_text(size = 24),      # Increase axis titles size
+    axis.text = element_text(size = 24),       # Increase axis labels size
+    legend.title = element_text(size = 22),    # Increase legend title size
+    legend.text = element_text(size = 20)      # Increase legend text size
+  )
+
+ fig1_rev_seed
 
 ```
 
 
 However, despite of this increasing burden of seed cost, farmers do not frequently adjust their seeding rates with respect to their very recent variation in market price and weather condition(@usdanass).
-Also, @usdanass data shows the evidence that the farmers do not really adjust their seeding rate during the time that the corn price decreases, while the seed cost increases and per acre revenue decreases. Figure @fig1-rev-seed-comb shows the trend of the yearly changes of net revenue after seed cost over the recent 30 years. The left plot shows the continuous increase in net revenue over 30 years, however, when we adjust it by Producer Price Index(PPI) of corn in agricultural commodity sector, the net revenue stops increasing  from 2016 and there are high fluctuation and decreasing trend of net revenue very recently.
+Also, @usdanass data shows the evidence that the farmers do not really adjust their seeding rate during the time that the corn price decreases, while the seed cost increases and per acre revenue decreases. @fig-rev_seed_comb shows the trend of the yearly changes of net revenue after seed cost over the recent 30 years. The left plot shows the continuous increase in net revenue over 30 years, however, when we adjust it by Producer Price Index(PPI) of corn in agricultural commodity sector, the net revenue stops increasing  from 2016 and there are high fluctuation and decreasing trend of net revenue very recently.
 
 In various recent resources, the estimated EOSR on the midwest Corn-belt (Heartland) are ranged  from 32k to 36k (@illinois2023seed,@licht2017corn,@lindsey2018modeling,@nielsen2019yield,@lacasa2020bayesian).  For instance, @assefa2018analysis estimated EOSR with the 14 years of on-farm experimental results from 22 different states, and it recommend 34K as a EOSR in the moderate weather condition in the Midwest corn-belt. However,  the impact of recently increased draught and extreme weather decreases the probability of high attainable yield in many of the Midwest fields and it doubt the profitability of the aforementioned high rates, 34K, seeding (@kukal2018climate,@rigden2020combined).
 
@@ -123,9 +142,9 @@ This research mainly evaluates the estimated profit of farmer's SQSR and EOSR by
 
 First, 163 OFPE data was adopted from the database that is collected by the Data Intensive Farm Management (DIFM) project @bullock2019data. The 169 dataset was gathered from the 42 farms which are located on 8 differents state of Midwest Corn-belt.  DIFM project consults OFPE by designing  S x N trial input combination to be applied and planted into trial polygon, and it prevents seed and nitrogen having spatial correlation.  Also, these two controlled inputs are spatially independent with soil and field specific characteristics @lix2021design.  
 
-```{r fig2-td-sample, fig.cap= "On Farm Trial Design Sample"}
+```{r fig-td_sample, fig.cap= "On Farm Trial Design Sample",fig.width=5, fig.height=8, out.width="60%"}
 
- # label: "fig2_td_sample"
+ # label: "fig_td_sample"
  # fig-cap: " On-Farm Trial Design Sample"
  # out-width: 80%
  # out-height: 80% # this does not have any effect
@@ -148,17 +167,18 @@ td_figure
 ```
 
 
-Figure @fig2-td-sample shows the example of the design, and the range of trial inputs are determined by assigning farmer's SQSR into the middle of the trial inputs range. 
+@fig-td_sample shows the example of the design, and the range of trial inputs are determined by assigning farmer's SQSR into the middle of the trial inputs range. 
 Following this trial-design, farmers apply the assigned rates and harvest the crop by using GPS-linked vehicle, and it records the S , N and yield data in real-time.  The experimental data, yield, S and N are cleaned and processed by the  protocol in @edge2024processing. The protocol creates yield polygon by eliminating the highly deviated or the misaligned yield points. The size of the yield polygon is determined by the size of the trial polygon, swath-width and distance of the  harvester, applicator and planter.  Input polygons for S and N are created by removing outliers and the data points which are located in the transition zone where the vehicle changes the trial rate.  After this individual cleaning process, it calculates the median value of  input polygons into yield polygons to combine yield and input polygon. At this process, the yield polygon where the combined input polygon have  high deviation are removed to prevent input straddling problem. Through this cleaning protocol, 66 out of 163 OFPE data are excluded in the dataset since they have too small observations due to straddling problem or errors in the field-collected raw level data.
 
-```{r tab1-dat-summary, tbl-cap: "Data summary by year (2016 to 2023)" }
-# label: tab1-dat-summary
+```{r tbl-dat_summary, tbl-cap: "Data summary by year (2016 to 2023)" }
+# label: tab-dat_summary
 # tbl-cap: "Data summary by year (2016 to 2023)"
 #--- find observations ---#
 # write the function that forces the number of observations to be presented as integers
 # Table 1 data summary table 
 
 # Calculate mean, sd (with NA removal for usdsr), and field count by year
+# Summarize the data
 
 summary_tab1_convert <- info_tb_resp[, .(
   field_count = .N , # Count the number of rows for each year
@@ -177,64 +197,87 @@ summary_tab1 <- flextable(summary_tab1_convert) %>%
     year = "Year", 
     avg_yield = "Mean\nYield\n(bu/ac)",
     sqsr = "SQSR",
-    usdsr = "USDA\nSR", 
+    usdsr = "USDASR", 
     prcp_t = "Precipitation\n(In-Season)",
     gdd_t = "GDD\n(In-Season)",
     prcp_30 = "Precipitation\n(30Year)",
     gdd_30 = "GDD\n(30Year)"
-  ) %>%
-  align(align = "center", part = "all") %>%  # Center-align headers and body content
-  autofit() %>%
-  set_table_properties(layout = "autofit")
+  )%>%
+  width(j = c(1,3,4), width = 0.4) %>% 
+  width(j = c(2,5) , width = 0.5) %>%
+  width(j = 6:9, width = 0.7) %>% # Manually set the width of each column
+  fontsize(size = 8, part = "all") %>%  # Set font size for the entire table
+  padding(padding = 3, part = "all")  %>%
+   align(align = "center", part = "all") %>%  # Center text in all cells
+  set_table_properties(layout = "fixed", width = 0.9) # Adjust table width and layout
 
-summary_tab1
+summary_tab1 
+
 ```
 
 The non-experimental variables of field specific information are added upon the processed yield and input combined polygon. The public data resource, Soil survey information(SSURGO) and Digital Eleveation Model(DEM) are used as a  field characteristic information; clay, sand, silt and water storage for soil, elevation, slope and curvature for topography. The median value of the soil and topography rasters are calculated for the overlapped polygon of experimental data by using R software (@r2021language). As the experimental and non-experimental variables are cleared and processed, for each experimental field, in-season (April 1st to September 30th) weather information is attached. From the Daily surface weather data, daymet(@thornton2022daymet), in-season total precipitation and accumulated growing degree day (GDD) of the trial year are calculated and added on each of the processed OFPE data. Finally, annual reported average seeding rate by state (USDASR) are obtained from @usdanass and attached to compare the SQSR and USDASR with the estimated profit, respectively. 
 
-
-Table @tab1-dat-summary is the summary statistics of the processed OFPE data by the trial year (from 2016 t0 2023). Each row of the table contains the average, standard deviation, minimum and max value of the experimental data; yield(bu/ac), SQSR(K/ac), USDASR(K/ac) and weather information; precipitation(inch) and accumulated GDD.
+@tbl-dat_summary is the summary statistics of the processed OFPE data by the trial year (from 2016 t0 2023). Each row of the table contains the average, standard deviation, minimum and max value of the experimental data; yield(bu/ac), SQSR(K/ac), USDASR(K/ac) and weather information; precipitation(inch) and accumulated GDD.
 
 ## Models
 
-To calculate the profit of farmer's SQSR and EOSR of the trial field, first, estimating accurate and field specific yield input response function is important. A number of recent research warns the defining unique functional form of yield response to input since the function has diverse form like linear, linear plateau, quadratic, and quadratic plateau by the field characteristics and weather of the given field and year ( !!! Add Citation). Thus, this study adopts Generalized Additive Model(GAM) to estimate yield S response function. To simplify the analysis and focus on the S rate management, this study consider S as an only controllable input. GAM has an advantage when the yield response function has a various form by field since it arbitrary chooses functional form without making any assumption on input and output relation. 
+$$
+Y = f(X,C,Z)
+$$ {#eq-yield}
 
-Equation @eq-res_f describes the equation of the yield S response function.
+@eq-yield is a meta yield response function which describes the true crop yield response function with respect to input(@bullock2009value).  Corn yield $\mathbf{Y}$ is a function of controllable inputs $\mathbf{X}$, field characteristics $\mathbf{C}$, and climate condition $\mathbf{Z}$. S and N fertilizer are the most important manageable inputs which belongs to $\mathbf{X}$ since their share of total farm operation costs are higest among all the inputs. $\mathbf{C}$ is consist of soil and topographic features, which are spatially depdendent and not changeable or very slowly varient during the single or couple of crop cultivating seasons. $\mathbf{Z}$ is stocahastic and highly time-variable factor that is not observable when the farmer make a decision of their inputs, $\mathbf{X}$.
 
 $$
-y_i = f_i(S, N, Sl, El, As, Tw, Cl, Sn, St, Wt) + \varepsilon_i
-$$ {#eq-res_f}
+E(Y_{it} \mid z_t) =  f_{it}(X,C_{it})
+$$ {#eq-res-ante}
 
+ @eq-res-ante represents the ex-ante yield response function at a given experimental field $i$ in a year $t$. The expected yield $E(Y_{it})$, at the moment of input rates decision, depends on the stochastic weather event during the in-season of year $t$, $\mathbf{z_t} \in Z$, and its associated probability. $z_t$ is not observable in the decision timing, also it is hard to forecast, so farmers need to make strategic input decision first, based on their knowledge about the functional form of $f_{it}$, and the given market price of corn and the input price, finally, with the expectation about the future weather scenario of $z_t$.
 
-In equation  @eq-res_f, $i$ is an individual field where OFPE data was collected abd processed.  $y_i$ is the observed yield of the processed data, and $f_i$ represents the yield response function for field $i$. The function variables of experimental inputs like S and N, and various non-experimental field characteristics such as $Sl$(slope),$El$(elevation),$As$(aspect),$Tw$(topographic wetness index)   $Cl$(clay), $Sn$(sand), $St$(silt), $Ws$(water storage).
-
-
-$$
- \hat{f}^{GAM}_{i} \equiv \beta_0+f_{i1}\left(S\right)+f_{i2}\left(N\right)+f_{i3}\left(Sl\right)+f_{i4 }\left(El\right) +f_{i5}\left(As \right)+f_{i6 }\left(Tw\right) \\ +f_{i7}\left(Cl\right)+f_{i8}\left(Sn\right) +f_{i9}\left(St\right)+f_{i10}\left(Wt\right)+\varepsilon_{i}
-$$ {#eq-gam}
-
-
-Equation @eq-gam describes the functional form of the GAM regression model to estimate $f_i$. The GAM allows for flexible estimation of non-linear relationships between yield $y_i$ and the explanatory variables, where $f_{ik}$ for $k={1,..,10}$ are the smoothing functions  that describe the influence of each variable on the yield.  Here, the primary controllable input is S, and the objectives of the analysis is to understand the yield response with respect to S keeping the other variables as non-controllable factors. 
-
+ Once the OFPE has been executed in the field $i$, and all the required data are collected, the ex-post yield input response function can be estimated with the observed weather $z_t$. Then, the estimated ex-post yield response function becomes
 
 $$
- \pi{_i} \left(S{_i}(\bar{p}, \bar{w})\right) \equiv\overline { p } \cdot \hat{f}^{GAM}_{i} - \bar{w} S_{i}
-$$ {#eq-prof-gam}
+Y_{it} = \hat{f}_{it}(X_{it}, \hat{C}_{it}) + \epsilon_{it}
+$${#eq-res-post}
 
-Equation @eq-prof-gam is the  per acre profit under the given market price of input and output, $\bar{p}$ and $\bar{w}$. $\left(S{_i}^*(\bar{p}, \bar{w})\right)$  is the uniform EOSR of the field $i$, which maximize the the profit of the field,$\pi{_i}$. For each field $i$, farmer has their own choice of seeding rate, SQSR, and it is denoted as $\left(S{_i}^{sq}(\bar{p}, \bar{w})\right)$.
+In @eq-res-post, by acquiring the incorporated OFPE data, soil and topographic feature of the field, $\hat{C}_{it}$ is observed, and the estimated yield response function,$\hat{f}_{it}$ can be calculated.
+
+Farmer's main purpose of input decision, is to maximize the expected profit with their own knowledge about yield response function, $\theta$.  @eq-res-ante-farmer represents the expected maximum of farmer's profit where $\mathit{h}(\mathbf{z})$ is the joint probability density function of weather events $\mathbf{z} \in Z$.
+$$
+E(\pi_i|\theta) \equiv \max_{X_{ij}} \ \mathbf{p} \int_{z \in Z} \left\{f_{it}^\theta(X_{ij}) - W \cdot X_{ij} \right\} h(\mathrm{z})dz
+$$ {#eq-res-ante-farmer}
+
+$\theta$ is established upon farmer's experiences and infromation, and it incorporates the farmer's understanding about how manageable inputs $X_{ij}$ and field characters $C_{it}$ interacts each other to form a farmer's own subjective belief about $f_{it}^\theta$.
+
+The objective of this research is to evaluate the farmer's seeding rate decision by cross-validate the profit of farmer's chosen rate and estimated EOSR of the given experimental field $i$. To evaluate the profit of farmer's SQSR and EOSR from the OPFE data, first, field specific yield input response function is to be accurately estimated.
+In estimating yield S response, defining a unique functional form can lead to severe bias since the function is highly variable by the distribution of field characteristics and the occured weather event. Thus, this study adopts Generalized Additive Model(GAM) to estimate yield S response function. GAM has an advantage when the yield response function has a various form by field since it arbitrary chooses functional form without making any assumption on input and output relation.  To simplify the analysis and focus on the S rate management, this study consider S as an only controllable input. 
+
+$$
+Y_{i} = \beta_0 + g_{1i}(S_{i},k) + g_{2i}(N_{i},k) + \sum_{m=1}^{M} h_{i}(C_{im},k) + \epsilon_i
+$$ {#eq-res-gam}
+
+@eq-res-gam describes the functional form of GAM regression model. $g_{1i}$ and $g_{2i}$ is the corresponding spline function of S and N, respectively. k is the number of knots which determines the flexibility of the spline function used to model the relationship of yield and response input (@wood2017generalized). Once the $k=0$, the spline function becomes linear, and for the $k>0$, the higher $k$ indicates more flexibility in spline curve to fit into the data points. For the $g_{1i}$ and $g_{2i}$, the knot is resticed to be, $k\in(0,3,4)$. By a number of test results with the colleceted OFPE data, the higher $k>4$ frequently bring out the over-fitting problem by generating wiggly response curve, meanwhile the fewer knots $k\in(1,2)$ led to underfitting problem by lowering the generalized cross-validation(GCV) score drastically. Spline function of all the $m$ number of field characteristic variables are indentical and denoted as, $h_i$ to avoid complexity of the model which lower the GCV scores. 
+
+In this research, the estimtaded yield response function from @eq-res-gam is assumed to be true yield response since it becomes teh criteria of the profit evaluation. By plugging this estitmates into the farmer's profit maximization in @eq-res-ante-farmer, ex-post esmiateed profit maximization becomes, 
+
+$$
+\pi_i(S{_i}^*(\bar{p}, \bar{w}))  \equiv \max_{S_{i}} \ \mathbf{\bar{p}} \left(\beta_0 + g_{1i}(S_{i},k) + g_{2i}(N_{i},k) + \sum_{m=1}^{M} h_{i}(C_{im},k)\right) - \bar{w} S_i
+$$ {#eq-res-post-farmer}
+
+Equation @eq-res-post-farmer is the estimated per acre net revenue after seeding cost under the given market price of input $\bar{p}$ and output $\bar{w}$ . $\left(S{_i}^*(\bar{p}, \bar{w})\right)$  is the uniform EOSR of the field $i$, which maximize the the profit of the field,$\pi{_i}$. Farmer's own choice of seeding rate, SQSR, is denoted as $\left(S{_i}^{sq}(\bar{p}, \bar{w})\right)$.
+
 
 
 $$
    E[Pr{_i}]  \equiv  \pi{_i} \left(S{_i}^{*}(\bar{p}, \bar{w})\right) -  \pi{_i} \left(S{_i}^{sq}(\bar{p}, \bar{w})\right)
 $${#eq-prof_dif}
 
-In equation @eq-prof_dif, $E[Pr{_i}]$ is the potential expected profit per acre that farmer can acquire by choosing EOSR instead of SQSR. As the farmers have better information about yield response of the field $i$, farmer would make their seeding decision, $\left(S{_i}^{sq}(\bar{p} \bar{w})\right)$ to be closer with $\left(S{_i}^*(\bar{p}, \bar{w})\right)$. The objective of this research is to evaluate farmer's seeding behavior by $E[Pr{_i}]$ and project the $E[Pr{_i}]$ onto the weather condition of the field in the given trial year with the incorporated hundred trials results.
+In @eq-prof_dif, $E[Pr{_i}]$ is the potential expected profit per acre that farmer can acquire by choosing EOSR instead of SQSR. As the farmers have better information about yield response of the field $i$, farmer would make their seeding decision, $\left(S{_i}^{sq}(\bar{p} \bar{w})\right)$ to be closer with $\left(S{_i}^*(\bar{p}, \bar{w})\right)$. 
+
 
 
 # Results
 
-```{r fig3-eosr-sqsr-weather, fig.cap = "EOSR by In-season & 30 year Avg Precipitation" }
-
+```{r fig-eosr-sqsr-weather, fig.cap = "EOSR and SQSR by the in-season precipitation (left) & 30 year Avg Precipitation (right)",fig.width=14, fig.height=10, out.width="100%"}
 
  # label: fig3-eosr-sqsr-weather
  # fig-cap: " EOSR by In-season & 30 year Avg Precipitation"
@@ -242,8 +285,8 @@ In equation @eq-prof_dif, $E[Pr{_i}]$ is the potential expected profit per acre 
  # out-height: 80% # this does not have any effect
 
 # Define min and max values for precipitation variables
-x_range_prec <- range(info_tb_resp$prcp_t, na.rm = TRUE)
-y_range <- range(c(info_tb_resp$eosr, info_tb_resp$sqsr))
+x_range <- range(200:1000)
+y_range <- range( 15:40)
 
 # Create the first plot for in-season precipitation
 eosr_sqsr_prec <- ggplot(info_tb_resp) +
@@ -251,13 +294,14 @@ eosr_sqsr_prec <- ggplot(info_tb_resp) +
   geom_point(aes(x = prcp_t, y = sqsr, color = "SQSR")) +
   scale_color_manual(name = "Type", values = c("EOSR" = "red", "SQSR" = "blue")) +
   xlim(200, 1000) +
-  geom_abline(intercept = 0, slope = (diff(y_range) / diff(x_range_prec)), color = "black", size = 0.2) +
+  geom_abline(intercept = 10, slope = (diff(y_range) / diff(x_range)), color = "black", size = 0.2) +
   labs(y = "Seeding Rate", x = "Precipitation \n In-Season (inch)") +
-  theme_minimal(base_size = 14) +
-  theme(legend.position = "none")
-
-# Define min and max values for 30-year average precipitation
-x_range_prcp30 <- range(info_tb_resp$prcp_30, na.rm = TRUE)
+  theme_minimal(base_size = 16) +
+  theme(legend.position = "none",
+    axis.title = element_text(size = 22),      # Increase axis titles size
+    axis.text = element_text(size = 22),
+    plot.margin = margin(5, 5, 80, 5)
+  )
 
 # Create the second plot for 30-year average precipitation
 eosr_sqsr_prec30 <- ggplot(info_tb_resp) +
@@ -265,15 +309,17 @@ eosr_sqsr_prec30 <- ggplot(info_tb_resp) +
   geom_point(aes(x = prcp_30, y = sqsr, color = "SQSR")) +
   scale_color_manual(name = "Seeding Type", values = c("EOSR" = "red", "SQSR" = "blue")) +
   xlim(200, 1000) +
-  geom_abline(intercept = 0, slope = (diff(y_range) / diff(x_range_prcp30)), color = "black", size = 0.2) +
+  geom_abline(intercept = 10, slope = (diff(y_range) / diff(x_range)), color = "black", size = 0.2) +
   labs(x = "Precipitation \n (30-Year Average)", y = NULL) +
-  theme_minimal(base_size = 14) +
+  theme_minimal(base_size = 16) +
   theme(
     legend.position = c(0.1, -0.3),
     legend.direction = "horizontal",
-    legend.title = element_text(size = 14),
-    legend.text = element_text(size = 14),
-    plot.margin = margin(5, 5, 60, 5)
+    axis.title = element_text(size = 22),      # Increase axis titles size
+    axis.text = element_text(size = 22),
+    legend.title = element_text(size = 22),
+    legend.text = element_text(size = 22),
+    plot.margin = margin(5, 5, 70, 5)
   )
 
 # Combine the two plots
@@ -288,11 +334,11 @@ eosr_sqsr_weather
 
 ```
 
-Figure @fig3-eosr-sqsr-weather illustrates the relationship between climate conditions and seeding rates. The left panel compares EOSRs (red) and SQSRs (blue) based on in-season total precipitation (inches) across 100 field trials, while the right panel shows the comparison based on accumulated Growing Degree Days (GDD). EOSRs exhibit greater vertical dispersion under the same levels of precipitation or GDD, whereas SQSRs show less variation relative to EOSRs. In 93 out of the 100 trials, SQSRs range from 30K to 36K, with a median value of 34K. In contrast, the median EOSR is 30.2K.
+Figure @fig-eosr-sqsr-weather illustrates the relationship between climate conditions and seeding rates. The left panel compares EOSRs (red) and SQSRs (blue) based on in-season total precipitation (inches) across 100 field trials, while the right panel shows the comparison based on accumulated Growing Degree Days (GDD). EOSRs exhibit greater vertical dispersion under the same levels of precipitation or GDD, whereas SQSRs show less variation relative to EOSRs. In 93 out of the 100 trials, SQSRs range from 30K to 36K, with a median value of 34K. In contrast, the median EOSR is 30.2K.
 
-Additionally,  Figure @fig3-eosr-sqsr-weather  reveals that, across the 100 trials, farmers' seeding rates tend to be higher than the estimated optimal, and this difference is skewed to the left when projected onto the diagonal line (black), indicating a tendency for over-seeding relative to the EOSR.
+Additionally,  Figure @fig-eosr-sqsr-weather  reveals that, across the 100 trials, farmers' seeding rates tend to be higher than the estimated optimal, and this difference is skewed to the left when projected onto the diagonal line (black), indicating a tendency for over-seeding relative to the EOSR.
 
-```{r tab2-result-resp-type, tbl-cap: "Analhysis Results Table By the Response Type" }
+```{r tab-result_resp_type, tbl-cap: "Analhysis Results Table By the Response Type" }
 # label: ab2-result-resp-type
 # tbl-cap: "Analhysis Results Table By the Response Type"
 
@@ -314,18 +360,25 @@ setorder(result_table2, resp_type)
 # Convert to a flextable for a formatted summary
 result_flex_tab2 <- flextable(result_table2) %>%
   set_header_labels(
+    resp_type = "Response\nType",
     field_count = "Field\nCount",
-    dif_s = "Differences in \n Seeding Rate\n(K/ac)",
-    dif_y = "Differences in \n Estimated Yield \n (bu/ac)",
-    dif_p = "Differences in \n Estimated Profit \n ($/ac)",
+    dif_s = "Differences\nin\n Seeding Rate\n(K/ac)",
+    dif_y = "Differences\nin\n Estimated Yield\n(bu/ac)",
+    dif_p = "Differences\nin\n Estimated Profit\n($/ac)",
     prcp_t = "Precipitation\n(In-Season)",
     gdd_t = "GDD\n(In-Season)",
     prcp_30 = "Precipitation\n(30 Year)",
     gdd_30 = "GDD\n(30 Year)"
   ) %>%
   align(align = "center", part = "all") %>%  # Center-align headers and body content
-  autofit() %>%
-  set_table_properties(layout = "autofit")
+  fontsize(size = 8, part = "all") %>%        # Set font size for the entire table
+  padding(padding = 3 , part = "all") %>% 
+  width(j = 1, width = 0.5) %>% 
+  width(j = 2, width = 0.4) %>%
+  width(j = 3:5, width = 0.6) %>% 
+  width(j = 6:9, width = 0.6) %>% 
+  set_table_properties(layout = "fixed", width = 0.9) # Adjust table width and layout
+
 
 # Print the flextable 
 result_flex_tab2
@@ -334,15 +387,15 @@ result_flex_tab2
 ```
 
 
-For a more detailed evaluation of farmers' seeding rate decisions,  table @tab2-result-resp-type presents the differences in seeding rate, yield, and profit at the SQSR and EOSR, with the 100 trials divided into five categories. These categories are based on the concavity of the yield response function, the sign of the difference between SQSR and EOSR, and whether the EOSR matches the Yield Maximizing Seeding Rate (YMSR).
+For a more detailed evaluation of farmers' seeding rate decisions,  table @tab-result_resp_type presents the differences in seeding rate, yield, and profit at the SQSR and EOSR, with the 100 trials divided into five categories. These categories are based on the concavity of the yield response function, the sign of the difference between SQSR and EOSR, and whether the EOSR matches the Yield Maximizing Seeding Rate (YMSR).
 
 The concavity of the yield response function is a crucial factor in economic analysis, as a convex response typically results in a corner solution at either the minimum or maximum value of the input, providing little useful guidance for determining an optimal seeding rate. In contrast, when the EOSR equals the YMSR, in some cases, the EOSR may also occur at the minimum or maximum of the trial input range. In these instances, the EOSR offers limited insight, as it only applies within the specific range of inputs used in the trial.
 
-In table @tab2-result-resp-type ,the overall difference between the SQSRs and EOSRs averages -3.8K, meaning that, on average, farmers are seeding 3.8K more seeds per acre than the estimated optimal rate. The estimated yield at SQSRs is 3.4 bushels per acre less than at EOSRs, reflecting the diminishing yield effect when seeding rates exceed the EOSR. Types A1 and B1 represent trials where the yield response function is concave, but the EOSR is identical to the YMSR. In many A1 type trials, the EOSRs are at or near the maximum of the trial input range, while in B1 type trials, the EOSRs are at or near the minimum of the trial input range. The average seeding rate differences are -4.5K in A1 and 9.1K in B1, indicating that, in the 24 trials classified as A1 and B1, farmers tend to choose higher seeding rates than the EOSR. The average yield difference between A1 and B1 is 3.1 bushels per acre, but the estimated profit difference between these groups is \$69.3 per acre. This result highlights that the potential profit loss from farmers' SQSR choices is largely due to the cost of excessive seeding. However, because some trials have EOSRs at the extremes of the input range (either the maximum or minimum), the numeric results for groups A1 and B1 may be biased.
+In table @tab-result_resp_type, the overall difference between the SQSRs and EOSRs averages -3.8K, meaning that, on average, farmers are seeding 3.8K more seeds per acre than the estimated optimal rate. The estimated yield at SQSRs is 3.4 bushels per acre less than at EOSRs, reflecting the diminishing yield effect when seeding rates exceed the EOSR. Types A1 and B1 represent trials where the yield response function is concave, but the EOSR is identical to the YMSR. In many A1 type trials, the EOSRs are at or near the maximum of the trial input range, while in B1 type trials, the EOSRs are at or near the minimum of the trial input range. The average seeding rate differences are -4.5K in A1 and 9.1K in B1, indicating that, in the 24 trials classified as A1 and B1, farmers tend to choose higher seeding rates than the EOSR. The average yield difference between A1 and B1 is 3.1 bushels per acre, but the estimated profit difference between these groups is \$69.3 per acre. This result highlights that the potential profit loss from farmers' SQSR choices is largely due to the cost of excessive seeding. However, because some trials have EOSRs at the extremes of the input range (either the maximum or minimum), the numeric results for groups A1 and B1 may be biased.
 
  Types A2 and B2 represent trials where the EOSRs are the most accurate and informative, as the yield response functions are concave, and the EOSRs are neither at the maximum nor the minimum of the trial input ranges. In these groups, the average yield difference between the two is only 1.5 bushels per acre, but the estimated profit difference is $18.8 per acre. Notably, the B2 group comprises 41 out of the 100 total trials, indicating that farmers tend to plant excessive seeds in many cases. This over-seeding leads to significant profit losses due to unproductive investment in seed.
 
-```{r fig4-dif-pro-seed-comb, fig.cap = "Difference in estimated Profit at a given climate condition by seeding status (SQSR-EOSR)" }
+```{r fig-dif_pro_seed_comb, fig.cap = "Difference in estimated Profit at a given climate condition by seeding status (SQSR-EOSR)" ,fig.height = 12, fig.width=16, out.width="100%" }
 
  # label: fig4-dif-pro-seed-comb
  # fig-cap: " Difference in estimated Profit at a given climate condition by seeding status (SQSR-EOSR)"
@@ -395,10 +448,10 @@ dif_prof_seed_prec_t <- ggplot(info_tb_resp) +
   theme(
     legend.position = "right", 
     legend.direction = 'vertical',# Place the legend at the bottom
-      axis.text = element_text(size = 16),  # Increase axis text size
-    axis.title = element_text(size = 16),  # Increase axis title size
-    legend.title = element_text(size = 16),  # Increase legend title font size
-    legend.text = element_text(size = 16)    # Increase legend text font size
+      axis.text = element_text(size = 24),  # Increase axis text size
+    axis.title = element_text(size = 24),  # Increase axis title size
+    legend.title = element_text(size = 24),  # Increase legend title font size
+    legend.text = element_text(size = 24)    # Increase legend text font size
   )
 
 
@@ -425,12 +478,11 @@ dif_prof_seed_prec_30 <- ggplot(info_tb_resp) +
   theme(
     legend.position = "right", 
     legend.direction = 'vertical',# Place the legend at the bottom
-      axis.text = element_text(size = 16),  # Increase axis text size
-    axis.title = element_text(size = 16),  # Increase axis title size
-    legend.title = element_text(size = 16),  # Increase legend title font size
-    legend.text = element_text(size = 16)    # Increase legend text font size
+      axis.text = element_text(size = 24),  # Increase axis text size
+    axis.title = element_text(size = 24),  # Increase axis title size
+    legend.title = element_text(size = 24),  # Increase legend title font size
+    legend.text = element_text(size = 24)    # Increase legend text font size
   )
-
 
 # Combine the two plots side by side with patchwork
 dif_prof_seed_prec_comb <- (dif_prof_seed_prec_t / dif_prof_seed_prec_30)   # Collect legends to appear only once
@@ -440,9 +492,9 @@ dif_prof_seed_prec_comb
 
 ```
 
- Figure @fig4-dif-pro-seed-comb displays the differences in Estimated Profit and Seeding Rate between the SQSR and EOSR , with the top panel showing these differences as a function of total in-sesaon precipitation of the trial year and the bottom panel categorizing them by the 30 year average precipitation of the trial region. This figure provides a visual representation of the results in  @tab2-result-resp-type  , illustrating the individual observations (trials) across both dimensions.
+@fig-dif_pro_seed_comb displays the differences in Estimated Profit and Seeding Rate between the SQSR and EOSR , with the top panel showing these differences as a function of total in-sesaon precipitation of the trial year and the bottom panel categorizing them by the 30 year average precipitation of the trial region. This figure provides a visual representation of the results in  @tab-result_resp_type, illustrating the individual observations (trials) across both dimensions.
 
-```{r fig5-rest-type-all, fig.cap = "Estimated Profit and Yield response by type (A2,B2,C)" }
+```{r fig-rest_type_all, fig.cap = "Estimated Profit and Yield response by type (A2,B2,C)" }
 
  # label: fig5-rest-type-all
  # fig-cap: " Estimated Profit and Yield response by type (A2,B2,C)"
@@ -551,13 +603,13 @@ type_a2_fig <- type_a2_p_resp | type_a2_y_resp
 ``` 
 
 
- Figure @fig5-rest-type-all visualizes the reasons why the estimated profits of the B2 group are significantly lower than those of the A2 group. The figures in the first row illustrate how the YMSR can lead to profit losses when compared to thecEOSR. In the right figure of the first row, the estimated profit response curve is flatter than the yield response curve, highlighting how a flatter profit curve contributes to potential profit losses at the YMSR. In the Type B2 group, the yield response to seeding  follows a quadratic pattern, plateauing beyond the YMSR. However, the profit response to seeding diminishes rapidly beyond the YMSR, which explains the potential loss of profit due to excessive seeding. Additionally, in several B2 trials, the yield response is not a quadratic plateau but a quadratic diminishing curve. As a result, profits decrease more sharply with higher seeding rates in these fields. In the Type A1 and B1 groups, as shown in the figures in the bottom row, many trials have their EOSRs at either the minimum or maximum of the trial input range.
+ Figure @fig-rest_type_all visualizes the reasons why the estimated profits of the B2 group are significantly lower than those of the A2 group. The figures in the first row illustrate how the YMSR can lead to profit losses when compared to thecEOSR. In the right figure of the first row, the estimated profit response curve is flatter than the yield response curve, highlighting how a flatter profit curve contributes to potential profit losses at the YMSR. In the Type B2 group, the yield response to seeding  follows a quadratic pattern, plateauing beyond the YMSR. However, the profit response to seeding diminishes rapidly beyond the YMSR, which explains the potential loss of profit due to excessive seeding. Additionally, in several B2 trials, the yield response is not a quadratic plateau but a quadratic diminishing curve. As a result, profits decrease more sharply with higher seeding rates in these fields. In the Type A1 and B1 groups, as shown in the figures in the bottom row, many trials have their EOSRs at either the minimum or maximum of the trial input range.
 
 # Discussion
 
  The tables and figures in the results section present the estimated yield and profit based on a fixed crop and seed price ratio of \$5.5 per bushel of corn and \$3.8 per thousand seeds. To further evaluate farmers' seeding decisions across different response types under varying crop and seed price ratios, estimated yield and profit were also calculated based on the annual price ratio changes over the past 10 years.
 
-```{r fig6-dif-pro-seed-by-price, fig.cap = "Difference in estimated Profit at different price ration scenario by seeding status (SQSR-EOSR)" }
+```{r fig-dif_proseed_by_price, fig.cap = "Difference in estimated Profit at different price ration scenario by seeding status (SQSR-EOSR)" }
 
  # label: fig6-dif-pro-seed-by-price
  # fig-cap: " Difference in estimated Profit at different price ration scenario by seeding status (SQSR-EOSR)"
@@ -570,7 +622,7 @@ type_a2_fig <- type_a2_p_resp | type_a2_y_resp
 
 ```
 
-Figure @fig6-dif-pro-seed-by-price shows the estimated profit for each response type under the highest relative seed cost (top) and the lowest relative seed cost (bottom). When comparing these figures with Figure @fig4-dif-pro-seed-by-comb , more trials fall into the A1 and A2 categories under the lowest relative seed cost. However, even with lower relative seed costs, the estimated profit loss due to excessive seeding rates (to the right of the black dashed vertical line) remains higher than the loss from deficient seeding rates.
+Figure @fig-dif_proseed_by_price shows the estimated profit for each response type under the highest relative seed cost (top) and the lowest relative seed cost (bottom). When comparing these figures with Figure @fig-dif_pro_seed_by_comb , more trials fall into the A1 and A2 categories under the lowest relative seed cost. However, even with lower relative seed costs, the estimated profit loss due to excessive seeding rates (to the right of the black dashed vertical line) remains higher than the loss from deficient seeding rates.
 
 
 # Conclusion

@@ -166,6 +166,8 @@ saveRDS(info_tb_resp, here("Data", "processed", "Analysis_results", "info_tb_res
 # [summary_tab1] / [table1_dat_summary.png]
 
 ```{r tables data table1, cache = T, results = "hide"}
+info_tb_resp <-readRDS(here("Data", "processed", "Analysis_results", "info_tb_resp.rds"))
+
 
 # Table 1 data summary table 
 
@@ -359,20 +361,33 @@ rev_minus_seed_no_adjust <- create_plot(plot1_wide_no_adjust, y_label = "Revenue
 rev_minus_seed_adjust <- create_plot(plot1_wide_adjust)
 
 # Combine the plots
-rev_seed_comb <- rev_minus_seed_no_adjust + rev_minus_seed_adjust +
-  plot_layout(ncol = 2) +
-  plot_annotation(
-    title = "Net Revenue After Seed Cost",
-    subtitle = "Left: Non-Adjusted | Right: PPI Adjusted",
-    theme = theme(
-      plot.title = element_text(hjust = 0.5),
-      plot.subtitle = element_text(hjust = 0.5),
-      plot.margin = margin(t = 10, r = 10, b = 40, l = 10)
-    )
-  )
+rev_seed_comb <- rev_minus_seed_no_adjust +
+  rev_minus_seed_adjust 
+  
+  
+  
+  #   plot_layout(ncol = 2) +
+  # plot_annotation(
+  #   title = "Net Revenue After Seed Cost",
+  #   subtitle = "Left: Non-Adjusted | Right: PPI Adjusted",
+  #   theme = theme(
+  #     plot.title = element_text(size = 20, hjust = 0.5),         # Increase title size
+  #     plot.subtitle = element_text(size = 16, hjust = 0.5),      # Increase subtitle size
+  #     plot.margin = margin(t = 10, r = 10, b = 80, l = 10)
+  #   )
+  # ) &
+  # theme(
+  #   axis.title = element_text(size = 18),      # Increase axis titles size
+  #   axis.text = element_text(size = 18),       # Increase axis labels size
+  #   legend.title = element_text(size = 16),    # Increase legend title size
+  #   legend.text = element_text(size = 14)      # Increase legend text size
+  # )
+
+rev_seed_comb
+
 
 saveRDS(rev_seed_comb, here("Results","Figures","fig1_rev_after_seed.rds"))
-ggsave(here("Results","Figures","fig1_rev_after_seed.png"), plot = rev_seed_comb , width = 8, height = 6)
+# ggsave(here("Results","Figures","fig1_rev_after_seed.png"), plot = rev_seed_comb , width = 8, height = 6)
 
 
 

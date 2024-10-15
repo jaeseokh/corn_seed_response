@@ -108,7 +108,7 @@ match(ffy_id_data,ffy_id_bdry)
 
  for(i in 1:length(ffy_id_data)){
   # Choose the experimental trial field from the list
-  ffy <-  ffy_id_data[i]
+  ffy_id <-  ffy_id_data[i]
   
     exp_tb <- exp_geom <- combined_tb <- combined_sf <- NULL 
     
