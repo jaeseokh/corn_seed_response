@@ -268,7 +268,7 @@ webshot(here("Results","Tables","table2_results_summary.html"),
 ############ Figures #############
 ##################################
 
-## Figure 1 ( Net revenue after seed cost figure 1996 to 2023)
+## Figure 1  ( Net revenue after seed cost figure 1996 to 2023)
 # [rev_seed_comb] / [fig1_rev_after_seed.png]
 
 ```{r figure1 net revenue after seed cost, cache = T, results = "hide"}
@@ -276,121 +276,30 @@ webshot(here("Results","Tables","table2_results_summary.html"),
 corn_ers <-read.csv(here("Data","Raw","corn_cost_return.csv"),header = T)
 ppi_dat <-read.csv(here("Data","Raw","ppi_corn_annual.csv"),header = T)
 
-# Assuming ppi_dat is your original dataset with "DATE" and "WPU0121" columns
-# Convert DATE to Date format
-ppi_dat$DATE <- as.Date(ppi_dat$DATE)
-# Extract year from DATE
+
+
+# Prepare ppi data and calculate annual average
 ppi_dat <- ppi_dat %>%
-  mutate(year = lubridate::year(DATE))
-# Calculate annual average of WPU0121
-ppi_annual <- ppi_dat %>%
+  mutate(DATE = as.Date(DATE), year = lubridate::year(DATE)) %>%
   group_by(year) %>%
-  summarise(wpu_annual = mean(WPU01220205, na.rm = TRUE))
+  summarise(wpu_annual = mean(WPU01220205, na.rm = TRUE)) %>%
+  filter(year >= 1996 & year <= 2023)
 
-## Set 1996 ppi as basic
-wpu_1996 <- ppi_annual %>% filter(year == 1996) %>% pull(wpu_annual)
+# Set 1996 PPI as baseline
+wpu_1996 <- ppi_dat %>% filter(year == 1996) %>% pull(wpu_annual)
 
-###
-corn_sel <- corn_ers %>% 
-           dplyr::select('Category','Item','Units','Region','Year','Value') %>%
-           filter(Item %in% c("Primary product, grain", "Seed","Fertilizer  ","Chemicals",
-                              "Total, operating costs","Yield","Price"))
+# Filter corn data
+corn_sel <- corn_ers %>%
+  filter(Item %in% c("Primary product, grain","Fertilizer  ", "Seed", "Yield"),
+         Region == "U.S. total") %>%
+  left_join(ppi_dat, by = c("Year" = "year")) %>%
+  mutate(
+    wpu_normalized = wpu_annual / wpu_1996,
+    Value_adjusted = Value / wpu_normalized
+  ) %>%
+  drop_na()
 
-###
-corn_sel <- corn_sel %>% filter(Region %in% c("U.S. total","Heartland" , "Northern Great Plains",
-                                              "Prairie Gateway" ))
-
-#### #########################
-#### 
-rev_seed_dat <- corn_sel %>%
-  filter(Item %in% c("Primary product, grain", "Yield","Price", "Seed","Total, operating costs"))
-
-# Define custom breaks for the x-axis
-custom_breaks <- seq(1996, 2024, by = 4)
-#### 
-ppi_annual <- ppi_annual %>% filter(year %in% 1996:2023)
-
-
-
-# Define common filter criteria
-regions <- c("U.S. total", "Heartland", "Northern Great Plains")
-items <- c("Primary product, grain", "Seed")
-
-# Create a function to simplify data preparation
-prepare_data <- function(data, adjust_ppi = FALSE) {
-  data %>%
-    filter(Region %in% regions, Item %in% if (adjust_ppi) c(items, "Yield") else items) %>%
-    left_join(ppi_annual, by = c("Year" = "year")) %>%
-    dplyr::select(Year, Region, Item, Value, wpu_annual) %>%
-    spread(Item, Value) %>%
-    mutate(
-      rev_minus_seed = if (adjust_ppi) {
-        wpu_normalized <- wpu_annual / wpu_1996
-        (`Primary product, grain` / wpu_normalized) - (Seed / wpu_normalized)
-      } else {
-        `Primary product, grain` - Seed
-      }
-    ) %>%
-    drop_na()
-}
-
-# Prepare data for the two plots
-plot1_wide_no_adjust <- prepare_data(rev_seed_dat, adjust_ppi = FALSE)
-plot1_wide_adjust <- prepare_data(rev_seed_dat, adjust_ppi = TRUE)
-
-# Create a function to simplify the ggplot generation
-create_plot <- function(data, y_label = NULL) {
-  ggplot(data, aes(x = Year, y = rev_minus_seed, color = Region, group = Region)) +
-    geom_line() +
-    scale_color_manual(values = c("Heartland" = "orange", 
-                                  "U.S. total" = "brown",
-                                  "Northern Great Plains" = "purple")) +
-    ylim(100, 1250) +
-    labs(
-      y = y_label,
-      color = "Region"
-    ) +
-    scale_x_continuous(breaks = seq(1996, 2024, by = 4), limits = c(1996, 2024)) +
-    theme_minimal() +
-    theme(legend.position = if (!is.null(y_label)) c(0.9, -0.15) else "none",
-          legend.direction = "horizontal")
-}
-
-# Generate the two plots
-rev_minus_seed_no_adjust <- create_plot(plot1_wide_no_adjust, y_label = "Revenue - Seed Cost ($/ac)")
-rev_minus_seed_adjust <- create_plot(plot1_wide_adjust)
-
-# Combine the plots
-rev_seed_comb <- rev_minus_seed_no_adjust +
-  rev_minus_seed_adjust 
-  
-  
-  
-  #   plot_layout(ncol = 2) +
-  # plot_annotation(
-  #   title = "Net Revenue After Seed Cost",
-  #   subtitle = "Left: Non-Adjusted | Right: PPI Adjusted",
-  #   theme = theme(
-  #     plot.title = element_text(size = 20, hjust = 0.5),         # Increase title size
-  #     plot.subtitle = element_text(size = 16, hjust = 0.5),      # Increase subtitle size
-  #     plot.margin = margin(t = 10, r = 10, b = 80, l = 10)
-  #   )
-  # ) &
-  # theme(
-  #   axis.title = element_text(size = 18),      # Increase axis titles size
-  #   axis.text = element_text(size = 18),       # Increase axis labels size
-  #   legend.title = element_text(size = 16),    # Increase legend title size
-  #   legend.text = element_text(size = 14)      # Increase legend text size
-  # )
-
-rev_seed_comb
-
-
-saveRDS(rev_seed_comb, here("Results","Figures","fig1_rev_after_seed.rds"))
-# ggsave(here("Results","Figures","fig1_rev_after_seed.png"), plot = rev_seed_comb , width = 8, height = 6)
-
-
-
+saveRDS(corn_sel, here("Data", "Processed","usda_ers_corn_cost_return.rds"))
 
 
 ```
