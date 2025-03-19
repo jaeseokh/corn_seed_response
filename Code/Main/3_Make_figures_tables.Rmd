@@ -171,6 +171,7 @@ info_tb_resp <-readRDS(here("Data", "processed", "Analysis_results", "info_tb_re
 
 # Table 1 data summary table 
 
+
 # Calculate mean, sd (with NA removal for usdsr), and field count by year
 summary_tab1_convert <- info_tb_resp[, .(
   field_count = .N , # Count the number of rows for each year
@@ -182,6 +183,7 @@ summary_tab1_convert <- info_tb_resp[, .(
   prcp_30 = sprintf("%.1f\n(%.1f)", round(mean(prcp_30), 1), round(sd(prcp_30), 1)),
   gdd_30 = sprintf("%.1f\n(%.1f)", round(mean(gdd_30), 1), round(sd(gdd_30), 1))
 ), by = year]
+
 
 summary_tab1 <- flextable(summary_tab1_convert) %>%
   set_header_labels(
@@ -394,9 +396,6 @@ eosr_sqsr_weather <- (eosr_sqsr_prec | eosr_sqsr_prec30) +
 
 # Save the combined plot
 ggsave(here("Results", "Figures", "fig3_eosr_sqsr_weather.png"), plot = eosr_sqsr_weather, width = 16, height = 10, units = "in")
-
-
-
 
 ggsave(here("Results","Figures","fig3_eosr_sqsr_weather.png"), plot =eosr_sqsr_weather , width = 16, height = 10, units = "in")
 

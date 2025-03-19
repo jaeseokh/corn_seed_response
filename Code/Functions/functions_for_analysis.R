@@ -123,8 +123,8 @@ run_and_evaluate_gams <- function(gam_formulas, data) {
 
   estimate_profit_fcn <- function(info_table, evaluation_data, price_table) {
   # Get prices for the given year from price_tab
-  corn_price_year <- price_table[Year == info_table$year, corn_price]
-  seed_price_year <- price_table[Year == info_table$year, seed_price]
+  corn_price_year <- price_table[year == info_table$year, corn_price]
+  seed_price_year <- price_table[year == info_table$year, seed_price]
 
   # Calculate profit estimates in eval_data
   evaluation_table <- evaluation_data %>%

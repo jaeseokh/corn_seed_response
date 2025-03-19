@@ -88,7 +88,7 @@ source(here("Code","Functions","functions_for_process.R"))
 
 # Data Processing
 
-```{r data processing, echo = F, results = "hide"}
+```{r data loading, echo = F, results = "hide"}
 
 # Read trial fields list ( corn, 102 fields data)
 
@@ -102,6 +102,16 @@ ffy_id_bdry <- list.files(here("Data","Raw","exp_bdry_data")) %>%
 
 # Check if ffy_id in the trial field list and boundary list are matched
 match(ffy_id_data,ffy_id_bdry)
+
+
+ffy_id_dat <- ffy_id_data[!ffy_id_data %in% c("15_1_2023", "15_2_2023", "15_3_2023", "27_1_2023", "9_1_2022", "9_2_2022")]
+
+saveRDS(ffy_id_dat, here("Data","Processed","ffy_id_list.rds"))
+
+```
+
+
+```{r exp and field data processing, echo = F, results = "hide"}
 
 # Read Exp_field_data and process non-exp data on the experimental data
 # add weather information on the field parameter ( field specific experimental information)
@@ -173,6 +183,10 @@ saveRDS(combined_sf, here("Data","Processed","Analysis_ready",paste0(ffy_id,"_me
 
  }
 
+```
+
+```{r weather data processing, echo = F, results = "hide"}
+
 
 for(i in 1:length(ffy_id_bdry)){
   # Choose the experimental trial field from the list
@@ -186,7 +200,7 @@ weather_info <- weather_input_info  <- NULL
 
 # Add weather informaion of the trial year and 30 year average
 # (in-seaon total preciptation and Gdd)
-weather_info <- calc_prcp_gdd(ffy_id) 
+weather_info <- calc_prcp_gdd_edd(ffy_id) 
 
 # make data table with weather and field input information
 weather_input_info <- trial_info %>% 
@@ -195,8 +209,9 @@ weather_input_info <- trial_info %>%
   .[input_type %in% c("s", "seed"), 
     .(ffy_id,
     input_type, unit, gc_rate, 
-      prcp_t = weather_info$prcp_t, gdd_t = weather_info$gdd_t, 
-      prcp_30 = weather_info$prcp_30, gdd_30 = weather_info$gdd_30)]
+      prcp_t = weather_info$prcp_t, gdd_t = weather_info$gdd_t, edd_t = weather_info$edd_t,
+       prcp_5 = weather_info$prcp_5, gdd_5 = weather_info$gdd_5,edd_5 = weather_info$edd_5,
+      prcp_30 = weather_info$prcp_30, gdd_30 = weather_info$gdd_30, edd_30 = weather_info$edd_30)]
 
 ### combined_sf, weather_info, input_info
 saveRDS(weather_input_info, here("Data","Processed","Analysis_ready",paste0(ffy_id,"_weather_info.rds")))
@@ -204,3 +219,5 @@ saveRDS(weather_input_info, here("Data","Processed","Analysis_ready",paste0(ffy_
 
 
 ```
+
+

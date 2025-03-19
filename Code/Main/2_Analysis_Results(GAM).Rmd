@@ -84,13 +84,6 @@ library(smoother) # for GAM
 source(here("Code","Main","0_Set_up_preparation.R"))
 source(here("Code","Functions","functions_for_analysis.R"))
 
-```
-
-
-
-```{r analysis GAM, cache = T, results = "hide"}
- 
-### Check all the field_year list (ffy) in the processed data(Analysis_Ready) folder
 
 ffy_merged_dat <- list.files(here("Data","Processed","Analysis_ready")) %>%
  str_subset("_merged_data.rds") %>%
@@ -103,6 +96,16 @@ ffy_weather_info <- list.files(here("Data","Processed","Analysis_ready")) %>%
 
 match(ffy_merged_dat, ffy_weather_info)
 
+
+
+
+```
+
+
+
+```{r analysis GAM, cache = T, results = "hide"}
+ 
+### Check all the field_year list (ffy) in the processed data(Analysis_Ready) folder
 
 # Run and evaluate GAMs with all the considered formula
 # for each experimental trial field
@@ -222,8 +225,187 @@ for(i in 1:length(ffy_merged_dat)) {
  saveRDS(info_tb_list, here("Data", "Processed", "Analysis_results", "info_tb_list.rds"))
 
 
+```
+
+```{r  after gam analysis data filtering , cache = T, results = "hide"}
+ 
+# evaluate SQ_SR and USDA_SR with EOSR
+
+# EOSR - SQ_SR and EOSR - USDA_SR
+ 
+best_gam_list <-readRDS(here("Data", "Processed", "Analysis_results", "best_gam_list.rds"))
+ info_tb_list <-readRDS(here("Data", "Processed", "Analysis_results", "info_tb_list.rds"))
+
+target_ffy_ids <- c("15_1_2023", "15_2_2023", "15_3_2023", "27_1_2023", "9_1_2022", "9_2_2022")
+
+match_ind_remove <- which(sapply(info_tb_list, function(df) any(df$ffy_id %in% target_ffy_ids)))
+
+# Identify elements to remove based on EOSR_y < 70 & is.na(USDSR)
+cond_ind_remove <- which(sapply(info_tb_list, function(df) any(df$eosr_y < 70 | is.na(df$usdsr))))
+
+# Combine both conditions
+remove_indices <- unique(c(match_ind_remove , cond_ind_remove))
+
+# Apply removal only if there are elements to remove
+if (length(remove_indices) > 0) {
+  best_gam_list <- best_gam_list[-remove_indices]
+  info_tb_list <- info_tb_list[-remove_indices]
+}
+
+# Print remaining length to confirm : both have 93 
+cat("Remaining elements in best_gam_list:", length(best_gam_list), "\n")
+cat("Remaining elements in info_tb_list:", length(info_tb_list), "\n")
+
+sq_wth_reg <-bind_rows(info_tb_list)
+
+# Add price information tab to sq_wth_reg ( recent 5 year, previous year, current year)
+# sq_wth_reg  and price_tab
+
+setDT(sq_wth_reg)
+setDT(price_tab)
+
+# Step 1: Compute price ratio for each year
+price_tab[, price_ratio_t := seed_price / corn_price]
+
+# Step 2: Compute 5-year rolling average price ratio (excluding current year)
+price_tab[, price_ratio5 := shift(frollmean(price_ratio_t, 5, align = "right"))]
+
+# Step 3: Compute last year's price ratio
+price_tab[, price_ratio1 := shift(frollmean(price_ratio_t, 1, align = "right"))]
+
+
+
 
 ```
 
+```{r sqsr and usdasr evaluation , cache = T, results = "hide"}
+ 
+ # Merge sq_wth_reg with price_tab on 'year'
+
+ dat_hypo  <- merge(sq_wth_reg, price_tab, by = "year", all.x = TRUE)
+
+# Compute delta seeding rates
+dat_hypo[, delta_sqsr := sqsr - eosr]
+dat_hypo[, delta_usdsr := usdsr - eosr]
+
+# Compute differences for precipitation, GDD, and price ratio
+dat_hypo[, delta_prcp := prcp_5 - prcp_30]
+dat_hypo[, delta_gdd := gdd_5 - gdd_30]
+dat_hypo[, delta_price_ratio := price_ratio5 - price_ratio1]
+
+# saveRDS(dat_hypo, here("Data", "Processed", "Analysis_results", "dat_hypo_test.rds"))
+dat_hypo <- readRDS(here("Data", "Processed", "Analysis_results", "dat_hypo_test.rds"))
+
+# Hypothesis1. 
 
 
+# Run quantile regression for delta_sqsr
+library(quantreg)
+
+# Define quantiles to estimate
+quantiles <- c(0, 0.2, 0.4, 0.8, 1)
+
+# Identify quantiles where delta_sqsr transitions from negative to positive
+quantile_values <- quantile(dat_hypo$delta_sqsr, probs = c(0,0.2, 0.4, 0.6, 0.8, 1))
+
+# Display quantile values and count observations per quantile
+quantile_ranges <- cut(dat_hypo$delta_sqsr, breaks = quantile_values, include.lowest = TRUE)
+table(quantile_ranges)
+
+# Define relevant quantiles based on transition points
+
+# Run quantile regression for hypothesis 1
+qr_h1 <- rq(delta_sqsr ~ delta_prcp + delta_gdd + delta_price_ratio, tau = quantiles, data = dat_hypo)
+
+
+### Hypothesis 2 ####
+
+# Run quantile regression for hypothesis 2
+  for (i in 1:nrow(dat_hypo)) {
+    ffy_id_sel  <- dat_hypo$ffy_id[i]
+    
+    # Load eval_tb for the selected field
+    eval_tb <- readRDS(here("Data", "processed", "Analysis_results", paste0(ffy_id_sel, "_eval_tb.rds")))
+    eval_tb <- eval_tb[, .(s_rate, yield_hat)]
+    
+    # Assign seeding rate quantiles within each field
+    eval_tb[, s_rate_quantile := cut(s_rate, 
+                                     breaks = quantile(s_rate, probs = c(0,0.2,0.4,0.6,0.8,1), na.rm = TRUE), 
+                                     include.lowest = TRUE)]
+    
+    # Compute yield variance within each quantile
+    yield_variance_quantiles <- eval_tb[, .(var_y_q1 = var(yield_hat[s_rate_quantile == levels(s_rate_quantile)[1]], na.rm = TRUE),
+                                            var_y_q2 = var(yield_hat[s_rate_quantile == levels(s_rate_quantile)[2]], na.rm = TRUE),
+                                            var_y_q3 = var(yield_hat[s_rate_quantile == levels(s_rate_quantile)[3]], na.rm = TRUE),
+                                            var_y_q4 = var(yield_hat[s_rate_quantile == levels(s_rate_quantile)[4]], na.rm = TRUE),
+                                            var_y_q5 = var(yield_hat[s_rate_quantile == levels(s_rate_quantile)[5]], na.rm = TRUE))]
+    
+    # Update dat_hypo with yield variance quantiles for the current field
+    dat_hypo[ffy_id == ffy_id_sel, `:=` (var_y_q1 = yield_variance_quantiles$var_y_q1,
+                                          var_y_q2 = yield_variance_quantiles$var_y_q2,
+                                          var_y_q3 = yield_variance_quantiles$var_y_q3,
+                                          var_y_q4 = yield_variance_quantiles$var_y_q4,
+                                          var_y_q5 = yield_variance_quantiles$var_y_q5)]
+}
+
+
+cor_matrix <- cor(dat_hypo[, .(var_y_q1, var_y_q2, var_y_q3, var_y_q4, var_y_q5)], use = "complete.obs")
+print(cor_matrix)
+
+
+# Run regression to test relationship between delta_sqsr and yield variance at different quantiles
+qr_h2 <- rq(delta_sqsr ~ var_y_q1 + var_y_q2 + var_y_q3 + var_y_q4 + var_y_q5, tau = quantiles, data = dat_hypo)
+
+# Summarize regression results
+summary(qr_h2)
+
+
+
+
+# Run quantile regression for hypothesis 3
+qr_h3 <- rq(delta_sqsr ~ delta_prcp + delta_gdd + delta_price_ratio + sqsr + usdsr + ymsr, tau = quantiles, data = dat_hypo)
+
+# Run quantile regression for hypothesis 4 (Full model)
+qr_h4 <- rq(delta_sqsr ~ delta_prcp + delta_gdd + delta_price_ratio + sqsr + usdsr + ymsr + prcp_5 + gdd_5 + prcp_30 + gdd_30, tau = quantiles, data = dat_hypo)
+
+# Summarize model results
+summary(qr_h1)
+summary(qr_h2)
+summary(qr_h3)
+summary(qr_h4)
+
+
+
+
+# Extract model comparison metrics
+model_comparison <- data.table(
+  Hypothesis = rep(c("H1", "H2", "H3", "H4"), each = length(quantiles)),
+  Quantile = rep(quantiles, times = 4),
+  Pseudo_R2 = c(summary(qr_h1_sqsr)$r.squared, summary(qr_h2_sqsr)$r.squared,
+                 summary(qr_h3_sqsr)$r.squared, summary(qr_h4_sqsr)$r.squared)
+)
+
+# Display model comparison results
+model_comparison
+```
+
+## Visualization of Effects
+
+```{r}
+
+# Create quantile regression coefficient plots
+coef_plot <- function(model, title) {
+  coef_df <- as.data.frame(summary(model)$coefficients)
+  coef_df$Variable <- rownames(coef_df)
+  coef_df$Quantile <- rep(quantiles, each = nrow(coef_df) / length(quantiles))
+  
+  ggplot(coef_df, aes(x = Quantile, y = Estimate, group = Variable, color = Variable)) +
+    geom_line() + geom_point() +
+    theme_minimal() +
+    ggtitle(title) +
+    labs(y = "Coefficient Estimate", x = "Quantile")
+}
+
+coef_plot(qr_h4_sqsr, "Quantile Regression Coefficients for delta_sqsr")
+
+```

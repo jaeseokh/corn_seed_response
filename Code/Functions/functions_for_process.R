@@ -2,11 +2,11 @@
 
 # Function to calculate in-season total precipitation and GDD
 
-calc_prcp_gdd <- function(ffy_id) {
+calc_prcp_gdd_edd <- function(ffy_id) {
   # Extract centroid of the field boundary
-  ffy_year <- temp_daymet <- daymet_t <- daymet_30 <- boundary_sf <- centroid  <- NULL
+  ffy_year <- temp_daymet <- daymet_t <- daymet_30 <- boundary_sf <- centroid <- NULL
 
- boundary_sf <- readRDS(here("Data","Raw","exp_bdry_data",paste0(ffy_id,"_bdry.rds")))
+  boundary_sf <- readRDS(here("Data", "Raw", "exp_bdry_data", paste0(ffy_id, "_bdry.rds")))
   
   centroid <- boundary_sf %>% 
     st_centroid() %>% 
@@ -25,42 +25,73 @@ calc_prcp_gdd <- function(ffy_id) {
     .$data %>% 
     data.table()
 
-  # Derive in-season total precipitation and GDD for the trial year
+  # Derive in-season total precipitation, GDD, and EDD for the trial year
   daymet_t <- temp_daymet %>%
     filter(year == ffy_year) %>%
-    rename(prcp = prcp..mm.day.) %>%
-    rename(tmax = tmax..deg.c.) %>%
-    rename(tmin = tmin..deg.c.) %>%
-    mutate(gdd = ifelse(tmax > 10, (tmax + tmin) * 0.5 - 10, 0)) %>%
-    mutate(gdd = pmax(gdd, 0)) %>%
-    dplyr::select(prcp, tmax, tmin, yday, gdd) %>%
+    rename(prcp = prcp..mm.day., tmax = tmax..deg.c., tmin = tmin..deg.c.) %>%
+    mutate(
+      gdd = ifelse(tmax > 10, (tmax + tmin) * 0.5 - 10, 0),
+      gdd = pmax(gdd, 0),
+      edd = ifelse(tmax > 30, tmax - 30, 0)
+    ) %>%
+    dplyr::select(prcp, tmax, tmin, yday, gdd, edd) %>%
     mutate(month = day_to_month(yday)) %>%
     filter(month %in% c('Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep')) %>%
-    summarize(prcp_t = round(sum(prcp, na.rm = TRUE), 1),
-              gdd_t = round(sum(gdd, na.rm = TRUE), 1))
+    summarize(
+      prcp_t = round(sum(prcp, na.rm = TRUE), 1),
+      gdd_t = round(sum(gdd, na.rm = TRUE), 1),
+      edd_t = round(sum(edd, na.rm = TRUE), 1)
+    )
 
-  # Derive in-season total precipitation and GDD for the 30-year average 
+  # Derive in-season total precipitation, GDD, and EDD for the recent 5-year average
+  daymet_5 <- temp_daymet %>%
+    filter(year %in% (ffy_year - 4):ffy_year) %>%
+    rename(prcp = prcp..mm.day., tmax = tmax..deg.c., tmin = tmin..deg.c.) %>%
+    mutate(
+      gdd = ifelse(tmax > 10, (tmax + tmin) * 0.5 - 10, 0),
+      gdd = pmax(gdd, 0),
+      edd = ifelse(tmax > 30, tmax - 30, 0)
+    ) %>%
+    dplyr::select(prcp, tmax, tmin, yday, gdd, edd, year) %>%
+    mutate(month = day_to_month(yday)) %>%
+    filter(month %in% c('Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep')) %>%
+    summarize(
+      prcp_5 = round(sum(prcp, na.rm = TRUE) / 5, 1),
+      gdd_5 = round(sum(gdd, na.rm = TRUE) / 5, 1),
+      edd_5 = round(sum(edd, na.rm = TRUE) / 5, 1)
+    )
+
+  # Derive in-season total precipitation, GDD, and EDD for the 30-year average
   daymet_30 <- temp_daymet %>%
-    rename(prcp = prcp..mm.day.) %>%
-    rename(tmax = tmax..deg.c.) %>%
-    rename(tmin = tmin..deg.c.) %>%
-    mutate(gdd = ifelse(tmax > 10, (tmax + tmin) * 0.5 - 10, 0)) %>%
-    mutate(gdd = pmax(gdd, 0)) %>%
-    dplyr::select(prcp, tmax, tmin, yday, gdd, year) %>%
+    rename(prcp = prcp..mm.day., tmax = tmax..deg.c., tmin = tmin..deg.c.) %>%
+    mutate(
+      gdd = ifelse(tmax > 10, (tmax + tmin) * 0.5 - 10, 0),
+      gdd = pmax(gdd, 0),
+      edd = ifelse(tmax > 30, tmax - 30, 0)
+    ) %>%
+    dplyr::select(prcp, tmax, tmin, yday, gdd, edd, year) %>%
     mutate(month = day_to_month(yday)) %>%
     filter(month %in% c('Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep')) %>%
     summarize(
       prcp_30 = round(sum(prcp, na.rm = TRUE) / length(unique(temp_daymet$year)), 1),
-      gdd_30 = round(sum(gdd, na.rm = TRUE) / length(unique(temp_daymet$year)), 1)
+      gdd_30 = round(sum(gdd, na.rm = TRUE) / length(unique(temp_daymet$year)), 1),
+      edd_30 = round(sum(edd, na.rm = TRUE) / length(unique(temp_daymet$year)), 1)
     )
 
   # Return the results as a list
   return(list(
     prcp_t = daymet_t$prcp_t, 
-              gdd_t = daymet_t$gdd_t, 
-              prcp_30 = daymet_30$prcp_30, 
-              gdd_30 = daymet_30$gdd_30))
+    gdd_t = daymet_t$gdd_t, 
+    edd_t = daymet_t$edd_t,
+    prcp_5 = daymet_5$prcp_5, 
+    gdd_5 = daymet_5$gdd_5, 
+    edd_5 = daymet_5$edd_5,
+    prcp_30 = daymet_30$prcp_30, 
+    gdd_30 = daymet_30$gdd_30, 
+    edd_30 = daymet_30$edd_30
+  ))
 }
+
 
 
 day_to_month <- function(yday) {
