@@ -1,0 +1,125 @@
+---
+title: "Generate Simulation Basis (Rational Target)"
+author: "Jaeseok Hwang"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+
+library(here)
+library(data.table)
+library(tidyverse)
+library(mgcv)
+
+# --- Source the Functions ---
+source(here("Code", "src", "functions_simulation_basis.R"))
+
+```
+
+
+# Load Data
+
+```{r road }
+
+# A. Load Neighbor Yield History (Created in Step 1)
+neighbor_yields <- readRDS(here("Data", "Processed", "neighbor_yield_history.rds"))
+
+# B. Load Field Parameters (To get the list of fields)
+field_lookup <- jsonlite::fromJSON(here("Data", "Raw", "field_parameter.json"), flatten = TRUE) %>%
+  as.data.table() %>%
+  .[crop == "corn"] # Corn Only
+
+# C. Define Economic Parameters (Can be made dynamic later)
+PRICE_CORN <- 4.50 
+PRICE_SEED <- 3.50 
+
+# Placeholder for results
+all_simulation_results <- list()
+
+
+```
+
+# Run Simulation Loop
+
+
+```{r run sim }
+
+# For testing, you can try just the first 5 fields: 1:5
+# For full run: 1:nrow(field_lookup)
+
+for(i in 1:nrow(field_lookup)) {
+  
+  target_ffy <- field_lookup$ffy_id[i]
+  trial_year_val <- as.numeric(field_lookup$year[i])
+  
+  # --- 1. Load GAM & Data for this Field ---
+  # Assuming standard file naming convention
+  gam_path <- here("Data", "Models", paste0(target_ffy, "_gam.rds"))
+  data_path <- here("Data", "Private", "corn", "exp_tb_data", paste0(target_ffy, "_tb.rds"))
+  
+  if(file.exists(gam_path) & file.exists(data_path)) {
+    
+    gam_mod <- readRDS(gam_path)
+    field_raw_data <- readRDS(data_path)
+    
+    # --- 2. Get Neighbor History ---
+    # Filter for this specific field and rename columns for the function
+    field_history <- neighbor_yields[ffy_id == target_ffy, .(year, yield = neighbor_yield_bu_ac)]
+    
+    # --- 3. Execute Simulation ---
+    sim_result <- generate_field_basis(
+      gam_model = gam_mod,
+      field_data = field_raw_data,
+      scym_history = field_history,
+      trial_year = trial_year_val,
+      corn_price = PRICE_CORN,
+      seed_price = PRICE_SEED
+    )
+    
+    if(!is.null(sim_result)) {
+      sim_result[, ffy_id := target_ffy] # Add ID to result
+      all_simulation_results[[i]] <- sim_result
+    }
+    
+  } else {
+    message(paste("Skipping:", target_ffy, "- Model or Data missing."))
+  }
+}
+
+# Combine all results into one master table
+final_basis_dt <- rbindlist(all_simulation_results)
+
+# Save the Basis for Analysis
+saveRDS(final_basis_dt, here("Data", "Processed", "simulation_basis_results.rds"))
+
+```
+
+
+# Analyze the "Gap"
+
+```{r anal gap }
+
+# Pick one field to visualize
+sample_id <- final_basis_dt$ffy_id[1]
+sample_data <- final_basis_dt[ffy_id == sample_id]
+
+# Calculate the "Basis Optimum" (The Mean of the distribution)
+basis_optimum <- mean(sample_data$sim_optimal_s)
+
+# Visualize
+ggplot(sample_data, aes(x = sim_optimal_s)) +
+  # The Distribution of Rational Choices (History)
+  geom_density(fill = "skyblue", alpha = 0.5) +
+  geom_vline(aes(xintercept = basis_optimum), color = "blue", linetype = "dashed", size = 1) +
+  
+  # Add labels
+  labs(title = paste("Basis Distribution for Field:", sample_id),
+       subtitle = "Blue Dashed Line = Expected Rational Target (Basis Optimum)",
+       x = "Optimal Seeding Rate (K)",
+       y = "Density (Probability based on History)") +
+  theme_minimal()
+
+
+```
