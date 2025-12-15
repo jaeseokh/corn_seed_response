@@ -1,0 +1,32 @@
+project:
+  type: book
+  output-dir: ../docs
+
+book:
+  title: "Producer's Input Decision System under Risk"
+  author: "Jaeseok Hwang"
+  chapters:
+    - index.qmd
+    - part: "Evaluate Seeding Decision(2024)"
+      chapters:
+        - Evaluate Seeding Decision(2024).Rmd
+    
+
+    - part: "Proper system of Decision (2025)"
+      chapters:
+        - Overview.Rmd
+        - Framework.Rmd
+        - Method.Rmd
+        - Results(under revision).Rmd
+
+format:
+  html:
+    theme: cosmo
+    css: style.css
+    toc: true
+    number-sections: true
+    code-fold: true     # <- hide code, show a toggle
+    code-tools: true    # <- show the </> Code button
+    code-summary: "Code"
+crossref: 
+  fig-prefix: "Figure"

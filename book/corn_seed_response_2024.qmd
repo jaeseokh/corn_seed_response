@@ -1,0 +1,833 @@
+---
+title: "Evaluating the Profitability of Corn Seeding Decisions: \\
+       Insights from On-Farm Precision Experiments Data"
+format: 
+  pdf:
+    toc: false
+    number-sections: true
+    number-depth: 2
+    fig-cap-location: bottom
+    fig-align: center
+    tbl-cap-location: top
+    keep-tex: true   # Keeps the intermediate LaTeX file, if needed
+    link-citations: true
+    citecolor: red
+    link-bibliography: true
+    reference-location: document
+    include-in-header:
+      - preamble.tex
+author:
+  - name: Jaeseok Hwang
+    corresponding: true
+    email: jaeseok2@illinois.edu
+    affiliations:
+      - University of Illinois at Urbana Champaign
+keywords:
+  - EOSR
+  - OFPE
+  - Yield Seed Response
+date: "`r Sys.Date()`"
+abstract: |
+  Efficient input use remains a central challenge in modern agriculture as farmers aim to balance productivity and profitability. In U.S. corn production, many farmers continue to rely on historically established seeding rates rather than adjusting decisions based on data-driven economic optimization. This study evaluates the profitability of farmers’ seeding decisions by estimating the yield response to seeding rates (S) and calculating Economically Optimal Seeding Rates (EOSR) using On-Farm Precision Experiment (OFPE) data. The analysis leverages 97 trials conducted across eight Midwest states between 2016 and 2023 and applies Generalized Additive Models (GAMs) to estimate field-specific yield response functions. Results show that in the majority of trials, farmers’ status quo seeding rates (SQSR) exceed EOSR, with an average over-seeding of 3.4K seeds per acre and estimated profit losses ranging from $18.8 to $69.3 per acre. Regression analyses further reveal that deviations between SQSR and EOSR are partially explained by recent climate trends, yield variability, and short-term changes in seed-to-crop price ratios. These findings highlight opportunities for farmers to improve profitability by adopting lower, site- and season-specific seeding rates, and offer insights for agronomic advisories and policy aimed at more adaptive and cost-effective input management.
+bibliography: seed_refs.bib
+csl: qje.csl
+---
+
+```{r}
+#| include: false
+
+library(knitr)
+opts_chunk$set(
+  fig.align = "center",
+  fig.retina = 5,
+  warning = FALSE,
+  message = FALSE,
+  cache = FALSE,
+  echo = FALSE
+)
+
+library(here)
+library(tidyverse)
+library(data.table)
+library(dplyr)
+library(gt)
+library(modelsummary)
+library(flextable)
+library(ggplot2)
+library(sf)
+library(patchwork)
+library(gt)
+library(gridExtra)
+library(grid)
+library(pls)
+library(quantreg)
+library(officer)
+library(purrr)
+
+
+```
+
+```{r}
+#--- Read the Sources and Data ---#
+
+# Read functions for data processing 
+source(here("Code","Functions","functions_for_table_figure.R"))
+
+dat_result <- readRDS(here("Data", "Processed", "Analysis_results", "dat_result.rds"))
+
+```
+
+\newpage
+
+# Introduction (Structure)
+
+Since the early 1950s, U.S. corn producers have benefited from steady yield improvements due to advances in agricultural technology, synthetic fertilizers, and hybrid seeds (@huffman2001structural, @duvick2005contribution). Until the 1970s, these yield increases translated directly into higher revenues for farmers, as low input costs allowed them to intensify production with minimal financial risk (@national1989alternative). However, the energy crisis of the 1970s led to sharp increases in the costs of hybrid seeds and nitrogen fertilizers, prompting a reassessment of input efficiency, especially in nitrogen use (@moschini1997intellectual, @sunding2001agricultural). Since then, biotechnology and precision agriculture have further transformed farming practices. Genetically engineered crops and new high-yield hybrid seeds incentivized farmers to use higher input rates, aiming to capture greater yields and potential revenue (@fernandez2006first, @schimmelpfennig2016farm).
+
+Recent years, however, have brought new challenges. Sharp increases in seed and nitrogen prices in 2007(See @fig-rev_seed_comb), combined with ongoing price volatility influenced by climate variability and geopolitical factors, have slowed yield gains per acre and increased farmers' cost burden (@saavoss2021trends, @usdaesmis). Environmental regulations now encourage more precise nitrogen applications to reduce ecological impact (@bekkerman2020history, @kanter2018technology), but achieving similar precision in seeding rates remains difficult. Farmers’ decision-making processes are further complicated by the rapid turnover of new hybrid seed varieties (@perry2022uncertainty) and diverse recommendations from seed companies (@clancy2017intellectual), making it harder to make well-informed and optimized seeding rate decisions.
+
+To navigate this complexity, farmers gather insights from various sources: personal experience, peer insights, agricultural consultants, and seed company recommendations (@hennessy2022characterizing). Though varied, these sources all aim to help farmers estimate accurate yield responses to determine the most profitable seeding rate. Yet, yield response to seeding rates depends heavily on future in-season weather, which is inherently unpredictable. As a result, farmers often base decisions on long-term regional climate patterns. However, climate change is disrupting these historical patterns, introducing more frequent extreme weather events and shifting growing conditions that complicate yield forecasting (@reimer2020farming, @lindsey2016drought). Additionally, farmers must consider future crop prices to determine profit-optimizing seeding rates, yet price volatility has increased in recent years, adding another layer of uncertainty. Thus, today’s farmers face the dual challenge of managing both weather and price risks. Although advances in agricultural technology and data access have expanded farmers’ understanding of field conditions and yield responses (@bullock2019data), rising seed costs and the unpredictability of weather and crop prices add significant pressure to make efficient, profit-maximizing planting decisions.
+
+
+```{r fig-rev_seed_comb, fig.cap="Annual Changes in Revenue, Seed Cost, Fertilizer Cost and Yield from 1996 to 2023 (Dashed lines shows PPI adjusted values)", fig.width=20, fig.height=20, out.width="100%"}
+
+corn_sel <- readRDS(here("Data", "Processed","usda_ers_corn_cost_return.rds"))
+
+# Create individual plots using the function
+plot_yield_single <- ggplot(corn_sel %>% filter(Item == "Yield")) +
+  geom_line(aes(x = Year, y = Value), size = 1, color = "brown") +
+  labs(y = "Yield (bu/ac)") +
+  scale_x_continuous(breaks = seq(1996, 2024, by = 4), limits = c(1996, 2024)) +
+  theme_minimal() +
+  theme(
+      axis.title = element_text(size = 18),         # Increase axis title font size
+    axis.text = element_text(size = 16),          # Increase axis text font size
+    legend.text = element_text(size = 16)
+  )
+
+plot_grain_combined <- create_combined_plot(corn_sel, "Primary product, grain", "Revenue ($/ac)", "blue")
+
+plot_seed_combined <- create_combined_plot(corn_sel, "Seed", "Seed Cost ($/ac)", "purple")
+
+plot_fert_combined <- create_combined_plot(corn_sel, "Fertilizer  ", "Fertilizer Cost ($/ac)", "green")
+
+# Arrange the plots
+ grid.arrange(plot_grain_combined, plot_seed_combined,plot_fert_combined,plot_yield_single, nrow = 4,
+   bottom = textGrob("Source : USDA-ERS Commodity Costs and Returns ",  x = 0.75, y = 0.35, gp = gpar(fontsize = 22, col = "black"))
+)
+
+```
+
+In light of increasing variability in weather, input costs, and output prices, this study evaluates the profitability of farmers’ corn seeding decisions and investigates the potential drivers behind deviations from economically optimal behavior. Specifically, we assess whether the seeding rate chosen by farmers before planting—referred to as the Status Quo Seeding Rate (SQSR)—aligns with the Economically Optimal Seeding Rate (EOSR), which is defined as the seeding rate that maximizes ex-post profit under realized weather and price conditions.
+
+We use data from 97 on-farm field experiments conducted between 2016 and 2023 across 41 farms in eight U.S. states. For each field, we estimate a yield-seeding response function using a Generalized Additive Model (GAM) to compute EOSR. This allows us to quantify the deviation between farmer decisions and economic optima as $\Delta S = SQSR - EOSR $, and to estimate the profit difference between SQSR and EOSR choices.
+
+This study also investigates whether the observed deviations $ \Delta S $ are systematically related to environmental and economic information available to farmers at the time of planting.
+
+First, we explore how farmers may form expectations about weather by comparing short-term weather patterns (e.g., 5-year averages) with long-term climate normals (e.g., 30-year averages). We test whether $\Delta S$ is associated with these deviations, under the assumption that farmers may react to more recent weather experiences rather than long-term trends.
+
+Second, we consider the role of yield risk. Because seeding rates can affect not only mean yield but also yield variability, we investigate whether within-field variance in ex-post yield outcomes is associated with $\Delta S$. Fields with greater yield uncertainty at higher or lower seeding rates may signal risk-based decision-making on the part of farmers.
+
+Third, we examine whether recent shifts in the relative prices of seed and corn drive seeding behavior. We measure price expectation changes as the difference in the seed-to-output price ratio between the 5-year average and the most recent year, and evaluate its association with $\Delta S$.
+
+On average, we find that farmers apply approximately 3,800 more seeds per acre than the estimated EOSR, leading to a potential profit loss of about \$ 24.70 per acre. These losses occur in approximately 40 percent of the trials. Further analysis using regression and quantile regression shows that the differences between SQSR and EOSR are significantly correlated with short-term precipitation trends, observed yield variability, and recent price ratio changes. These findings suggest that farmer seeding decisions are not random but reflect patterns shaped by experience, expectations, and risk considerations—and that there may be substantial opportunities to improve profitability through more data-informed seeding practices.
+
+
+# Conceptual Framework
+
+$$
+y_{it} = f_{it}^M(x_{it}, c_{it}, z_{it})
+$$ {#eq-true-resp}
+
+Corn production is determined by the interaction among controllable inputs $x_{it}$ (e.g., seed and nitrogen), field characteristics $c_{it}$ (e.g., soil and topography), and seasonal weather $z_{it}$. Equation @eq-true-resp represents the true yield response function for field $i$ in year $t$.
+
+Given that future weather is uncertain at the time of decision-making, the expected yield is:
+
+$$
+E[y_{it}] =  \int_{z_{it} \in Z_i}f_{it}^M(x_{it},z_{it})h(z_{it}) \, dz_{it}
+$$ {#eq-ante-resp}
+
+where $z_{it}$ represents all possible weather outcomes in the local climate region $Z_i$, and $h(z_{it})$ denotes the probability density function (PDF) of those events.
+
+In real-world decision environments, farmers rarely have access to complete information about the complex interactions among input decisions, field characteristics, and future weather conditions. As discussed by @morris2018strengths, capturing the full complexity of these interactions—and accurately modeling the underlying probability distribution of weather outcomes ($z_{it}$)—remains a fundamental challenge in agricultural systems modeling. Consequently, farmers form subjective yield response expectations based on a combination of internal knowledge (e.g., past experiences, informal experiments) and external sources (e.g., agronomic advisors, seed companies, extension services). These sources shape farmers’ beliefs about both the yield function $f_{it}^B(x_{it}, z_{it})$ and the distribution $h^B(z_{it})$ of potential weather outcomes, as documented in @hennessy2022characterizing. This belief system forms the foundation of farmers’ ex-ante seeding decisions.
+
+$$
+E[\hat{y}_{it}] =  \int_{z_{it} \in Z_i}f_{it}^B(x_{it},z_{it})h^B(z_{it}) \, dz_{it}
+$$ {#eq-ante-farmer}
+
+Here, $f_{it}^B$ and $h^B(z_{it})$ represent the farmer’s subjective yield response and their perceived weather distribution.
+
+The farmer’s expected profit at the time of input application is:
+
+$$
+E[\pi_{it}^B] = \max_{x_{it}} \int_{z_{it}} \int_{p_t} \left\{ p_t \cdot f_{it}^B(x_{it}, z_{it}) - \bar{w} \cdot x_{it} \right\} h^B(z_{it}) \, q^B(p_t) \, dp_t \, dz_{it}
+$$ {#eq-farmer-profit}
+
+Once the season ends and actual weather $\bar{z}_{it}$ and price $\bar{p}_t$ are realized, the true realized profit becomes:
+
+$$
+\pi_{it}^M(x_{it}) = \bar{p}_t \cdot f_{it}^M(x_{it}, \bar{z}_{it}) - \bar{w} \cdot x_{it}
+$$ {#eq-true-post}
+
+The economically optimal seeding rate (EOSR) is defined as the input level that maximizes this realized profit, while the farmer's chosen seeding rate is referred to as SQSR.
+
+To evaluate farmer behavior, we define the difference in seeding rates as:
+$$
+\Delta S_{it} = SQSR_{it} - EOSR_{it}
+$$ {#eq-seed-deviation}
+
+A positive $\Delta S_{it}$ implies over-seeding, while a negative value indicates under-seeding. The corresponding difference in profit is:
+
+$$
+\Delta \pi_{it} = \pi_{it}^M(EOSR_{it}) - \pi_{it}^M(SQSR_{it})
+$$ {#eq-prof-dif}
+
+This study investigates whether the observed differences between the farmer-chosen rate (SQSR) and the economically optimal rate (EOSR), as measured by both $\Delta S_{it}$ and $\Delta \pi_{it}$, can be systematically explained by three behavioral mechanisms.
+
+First, farmers may rely on historical climate signals when forming expectations about the growing season, especially in the absence of perfect foresight. Specifically, they may use recent short-term deviations in precipitation or temperature from long-term climate averages to guide input decisions. If recent years have been drier or cooler than the long-term norm, farmers may adjust their seeding rate accordingly. This relationship is captured by the following specification:
+
+$$
+\Delta S_{it} = \alpha + \beta_1 (P^{30yr}_{it} - P^{5yr}_{it}) + \beta_2 (GDD^{30yr}_{it} - GDD^{5yr}_{it}) + \varepsilon_{it}
+$$ {#eq-h1-frame}
+
+Here, $\Delta S_{it}$ is the difference between SQSR and EOSR for field $i$ in year $t$; $P^{30yr}_{it}$ and $P^{5yr}_{it}$ denote 30-year and 5-year average growing-season precipitation; $GDD^{30yr}_{it}$ and $GDD^{5yr}_{it}$ represent 30-year and 5-year averages of accumulated growing degree days (GDD), a measure of heat accumulation. The coefficients $\beta_1$ and $\beta_2$ capture how deviations from historical climate influence farmer decisions. $\varepsilon_{it}$ is the idiosyncratic error term.
+
+Second, farmers may respond to perceived yield risk when selecting seeding rates. Within-field yield variability, observed ex-post, can offer insight into how farmers implicitly evaluate risk when making ex-ante seeding decisions. If higher variance in yield outcomes is associated with a given seeding rate, farmers might interpret this as an indicator of production risk and either reduce or increase seeding intensity based on their risk preferences. This logic motivates the regression model:
+
+$$
+\Delta S_{it} = \alpha + \beta_1 \text{Var}(y_{it}) + \varepsilon_{it}
+$$ {#eq-h2-frame}
+
+In this model, $\text{Var}(y_{it})$ represents the ex-post observed variance in yield across experimental plots within the field. A positive $\beta_1$ implies that higher yield variability is associated with greater over-seeding, potentially reflecting risk-seeking behavior. A negative $\beta_1$ suggests risk aversion, where greater variability leads to under-seeding.
+
+Finally, seeding decisions may also reflect expectations about market conditions—particularly the input-output price ratio. When seed costs rise relative to corn prices, farmers may choose to seed more conservatively; in contrast, a favorable output price relative to seed cost may incentivize higher seeding rates. This behavior is summarized in the following formulation:
+
+$$
+\Delta S_{it} = \alpha + \beta_1 (R^{5yr}_{it} - R^{1yr}_{it}) + \varepsilon_{it}, \quad \text{where } R_t = \frac{P_t^{\text{seed}}}{P_t^{\text{crop}}}
+$$ {#eq-h3-frame}
+
+In this equation, $R_t$ is the seed-to-crop price ratio, with $P_t^{\text{seed}}$ as the per-unit seed price and $P_t^{\text{crop}}$ as the per-bushel corn price. The term $(R^{5yr}_{it} - R^{1yr}_{it})$ captures the difference between the 5-year average and the most recent year’s price ratio. A positive $\beta_1$ would suggest that rising seed costs relative to crop prices encourage farmers to reduce seeding rates.
+
+These behavioral mechanisms form the basis of the three hypotheses tested in this study, each of which links systematic elements of farmers’ decision-making to observable deviations in seeding behavior and profitability.
+
+
+# Method
+
+## Econometric Models
+
+To estimate the field-specific yield response function and determine the EOSR, we employ a Generalized Additive Model (GAM) approach. The functional form of the GAM regression model is specified as:
+
+$$
+y_{it} = \beta_0 + g_1(S_{it}, k) + g_2(N_{it}, k) + \sum_{j=1}^J v_j(C_{ijt}, k) + \varepsilon_{it}
+$$ {#eq-res-gam}
+
+In Equation @eq-res-gam, $g_1(S_{it}, k)$ and $g_2(N_{it}, k)$ denote spline-based smooth functions for seeding and nitrogen rates, respectively. The functions $v_j(C_{ijt}, k)$ capture the effects of field-specific covariates such as soil and topographic features, where each is modeled using identical spline terms to maintain parsimony. The parameter $k$ determines the flexibility of the spline, i.e., the number of knots. Following the guidance in @wood2017generalized, setting $k = 0$ reduces the spline to a linear form, while higher values of $k$ allow for increasing flexibility in capturing nonlinear relationships.
+
+Through extensive testing on the collected OFPE dataset, we found that very low values of $k$ (e.g., $k = 1, 2$) often underfit the data, yielding high generalized cross-validation (GCV) scores due to insufficient flexibility. Conversely, large values of $k$ (e.g., $k > 4$) led to overly complex, wiggly response curves, indicating overfitting and increased model variance. Based on these diagnostics, we restrict $k$ to the range $\{0, 3, 4\}$ to balance bias and variance in the fitted model. Additionally, we use a uniform spline structure across the $J$ field characteristics to reduce model complexity and preserve GCV performance.
+
+Once the GAM model is estimated, we plug the fitted yield response function into the ex-post profit maximization problem described in Equation @eq-true-post to compute the economically optimal seeding rate (EOSR) and corresponding profit.
+
+## Econometric Models
+
+To evaluate the behavioral hypotheses outlined in the conceptual framework, we estimate field-level relationships using quantile regression models. Unlike Ordinary Least Squares (OLS), quantile regression allows us to explore how explanatory variables affect different points of the conditional distribution of the seeding deviation, rather than just the mean. This is particularly valuable when the outcome distribution is asymmetric or heterogeneous across quantiles, as is often the case in agricultural decisions with risk and weather uncertainty (@koenker1978regression).
+
+Let the dependent variable be defined as:
+
+$$
+\widehat{\Delta S}_{ft} = S^{\text{farmer}}_{ft} - S^{\text{eosr}}_{ft}
+$$ {#eq-qr-ds}
+
+where $\widehat{\Delta S}_{ft}$ is the estimated deviation in seeding rate for field $f$ in year $t$.
+
+To test Hypothesis 1 on climate expectations, we estimate:
+
+$$
+Q_\tau(\widehat{\Delta S}_{ft}) = \alpha_0^\tau + \alpha_1^\tau \Delta \text{Precip}_{ft} + \alpha_2^\tau \Delta \text{GDD}_{ft} + \alpha_3^\tau \Delta \text{EDD}_{ft}
+$$ {#eq-qr-h1-final}
+
+where:
+- $\Delta \text{Precip}_{ft} = \text{Precip}^{30yr}_{ft} - \text{Precip}^{5yr}_{ft}$ is the long-term vs. short-term precipitation difference,
+- $\Delta \text{GDD}_{ft} = \text{GDD}^{30yr}_{ft} - \text{GDD}^{5yr}_{ft}$ is the heat accumulation difference,
+- $\Delta \text{EDD}_{ft}$ denotes change in extreme degree days (heat stress days).
+
+For Hypothesis 2 on yield risk, within each field, yield variance is calculated over five seeding rate quantiles. Due to multicollinearity, principal component analysis (PCA) is applied to reduce dimensions, and we regress:
+
+$$
+Q_\tau(\widehat{\Delta S}_{ft}) = \beta_0^\tau + \beta_1^\tau PC1_{ft} + \beta_2^\tau PC2_{ft}
+$$ {#eq-qr-h2-final}
+
+where:
+- $PC1_{ft}$ captures the overall level of yield variability,
+- $PC2_{ft}$ reflects the curvature or change in variance across seeding levels.
+
+For Hypothesis 3 on market expectations, we define the short-term trend in the seed-to-crop price ratio as:
+
+$$
+\Delta R^{\text{trend}}_{ft} = R^{5yr}_{ft} - R^{1yr}_{ft}, \quad \text{with } R_t = \frac{P^{\text{seed}}_t}{P^{\text{crop}}_t}
+$$ {#eq-price-ratio-def}
+
+The model becomes:
+
+$$
+Q_\tau(\widehat{\Delta S}_{ft}) = \gamma_0^\tau + \gamma_1^\tau \Delta R^{\text{trend}}_{ft}
+$$ {#eq-qr-h3-final}
+
+Finally, we estimate a full model to assess combined and interaction effects:
+
+$$
+Q_\tau(\widehat{\Delta S}_{ft}) = \theta_0^\tau + \theta_1^\tau \Delta \text{Precip}_{ft} + \theta_2^\tau \Delta \text{GDD}_{ft} + \theta_3^\tau PC1_{ft} + \theta_4^\tau PC2_{ft} + \theta_5^\tau \Delta R^{\text{trend}}_{ft} + \theta_6^\tau (PC1_{ft} \cdot \Delta R^{\text{trend}}_{ft})
+$$ {#eq-qr-full-final}
+
+These models allow us to uncover nuanced behavioral patterns that may not be evident using traditional mean-based methods, providing richer insight into how farmers adjust seeding rates in response to different agronomic and market signals.
+
+
+## Datasets
+
+This research evaluates farmers' ex-ante seeding rate decisions, referred to as the Status Quo Seeding Rate (SQSR), by comparing them to the Economically Optimal Seeding Rate (EOSR), which is determined after harvest based on actual outcomes. To estimate EOSR and assess profitability differences between SQSR and EOSR, we first estimate yield-seeding response functions specific to each field using on-farm precision experimentation (OFPE) data.
+
+The dataset includes 97 OFPE trials collected through the DIFM project as described by @bullock2019data. These trials span 42 farms located across eight states in the U.S. Midwest. The trials involve experimentally controlled applications of seeding and nitrogen rates across trial polygons, following the experimental designs described in @lix2021design.
+
+All yield, seeding, and nitrogen data were cleaned and processed according to the standardized protocol outlined by @edge2024processing to ensure the accuracy of EOSR estimation. Furthermore, each field record includes detailed soil information obtained from SSURGO, topographic characteristics derived from digital elevation models (DEM), and both historical and in-season climate variables retrieved from the Daymet database.
+
+```{r fig-td_sample, fig.cap= "On Farm Trial Design Sample",fig.width=4, fig.height=6, out.width="60%"}
+
+td_sample <-readRDS(here("Data","Raw","trial-design-sample.rds"))
+
+random_colors <- c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#FF7F00")  # Example colors
+
+td_figure  <- ggplot(td_sample) +
+  geom_sf(aes(fill = factor(trial_rate))) +  # Convert trial_rate to a factor for discrete values
+  scale_fill_manual(values = random_colors, name = "Trial Seed Rate (K/ac)") +  # Random color scale with custom legend title
+  theme_minimal() +
+  coord_sf(expand = FALSE) +  # Prevents automatic expansion of the plot
+  theme(axis.title = element_blank(),   # Remove axis titles
+        axis.text = element_blank(),    # Remove axis text
+        axis.ticks = element_blank())   # Remove axis ticks
+
+td_figure 
+
+```
+
+
+@fig-td_sample shows the example of the design, and the range of trial inputs are determined by assigning farmer's SQSR into the middle of the trial inputs range.  Following this trial-design, farmers apply the assigned rates and harvest the crop by using GPS-linked vehicle, and it records the seed , nitrogen and yield data in real-time.  The experimental data, yield, seed and nitrogen are cleaned and processed by the  protocol in @edge2024processing. The protocol creates yield polygon by eliminating the highly deviated or the misaligned yield points. The size of the yield polygon is determined by the size of the trial polygon, swath-width and distance of the  harvester, applicator and planter.  Input polygons for S and N are created by removing outliers and the data points which are located in the transition zone where the vehicle changes the trial rate.  After this individual cleaning process, it calculates the median value of  input polygons into yield polygons to combine yield and input polygon. At this process, the yield polygon where the combined input polygon have  high deviation are removed to prevent input straddling problem. Through this cleaning protocol, 66 out of 163 OFPE data are excluded in the dataset since they have too small observations due to straddling problem or errors in the field-collected raw level data.
+
+The non-experimental variables of field specific information are added upon the processed yield and input combined polygon. The public data resource, Soil survey information(SSURGO) and Digital Eleveation Model(DEM) are used as a  field characteristic information; clay, sand, silt and water storage for soil, elevation, slope and curvature for topography. The median value of the soil and topography rasters are calculated for the overlapped polygon of experimental data by using R software (@r2021language). As the experimental and non-experimental variables are cleared and processed, for each experimental field, climate variables are added to analyze how farmer's decision beahvior are correlated with long-term climate trend and recent weather events.   From the Daily surface weather data, daymet(@thornton2022daymet), in-season (April 1st to September 30th) weather information of recent 30-year(climate), 5-year(climte change), and trial year are collected for the given boundary of the field. Total precipitation and accumulated growing degree day (GDD) of the above three different periods are calculated and added on the processed OFPE data. 
+```{r tbl-datsummary, tbl.cap = "Data summary by year (2016 to 2023)"  }
+
+
+summary_tab1_convert <- dat_result[, .(
+  field_count = .N , # Count the number of rows for each year
+  sqsr = sprintf("%.1f\n(%.1f)", round(mean(sqsr), 1), round(sd(sqsr), 1)),
+  prcp_t = sprintf("%.1f\n(%.1f)", round(mean(prcp_t), 1), round(sd(prcp_t), 1)),
+  prcp_5 = sprintf("%.1f\n(%.1f)", round(mean(prcp_5), 1), round(sd(prcp_5), 1)),
+  prcp_30 = sprintf("%.1f\n(%.1f)", round(mean(prcp_30), 1), round(sd(prcp_30), 1)),
+  gdd_t = sprintf("%.1f\n(%.1f)", round(mean(gdd_t), 1), round(sd(gdd_t), 1)),
+  gdd_5 = sprintf("%.1f\n(%.1f)", round(mean(gdd_5), 1), round(sd(gdd_5), 1)),
+  gdd_30 = sprintf("%.1f\n(%.1f)", round(mean(gdd_30), 1), round(sd(gdd_30), 1)),
+  edd_t = sprintf("%.1f\n(%.1f)", round(mean(edd_t), 1), round(sd(edd_t), 1)),
+  edd_5 = sprintf("%.1f\n(%.1f)", round(mean(edd_5), 1), round(sd(edd_5), 1)),
+  edd_30 = sprintf("%.1f\n(%.1f)", round(mean(edd_30), 1), round(sd(edd_30), 1))
+), by = year]
+
+
+summary_tab1 <- flextable(summary_tab1_convert) %>%
+  set_header_labels(
+    year = "Year", 
+    field_count = "Field\nCount",
+    sqsr = "SQSR",
+    prcp_t = "Precipi\ntation\n(In-Season)",
+    prcp_5 = "Precipi\ntation\n(5Year)",
+    prcp_30 = "Precipi\ntation\n(30Year)",
+    gdd_t = "GDD\n(In-Season)",
+    gdd_5 = "GDD\n(5Year)",
+    gdd_30 = "GDD\n(30Year)",
+    edd_t = "EDD\n(In-Season)",
+    edd_5 = "EDD\n(5Year)",
+    edd_30 = "EDD\n(30Year)"
+  )%>%
+  width(j = c(1:3), width = 0.4) %>% 
+  width(j = 4:12, width = 0.4) %>% # Manually set the width of each column
+  fontsize(size = 8, part = "all") %>%  # Set font size for the entire table
+  padding(padding = 3, part = "all")  %>%
+  align(align = "center", part = "all") %>%  # Center text in all cells
+  set_table_properties(layout = "fixed", width = 0.9) # Adjust table width and layout
+
+ summary_tab1 
+
+```
+
+@tbl-datsummary presents summary statistics of the processed OFPE data from 2016 to 2023, grouped by trial year. For each year, the table reports the average and standard deviation (in parentheses) of the Status Quo Seeding Rate (SQSR), as well as key weather variables including precipitation, Growing Degree Days (GDD), and Extreme Degree Days (EDD), observed in-season and over 5-year and 30-year historical periods.
+
+Notably, in-season precipitation varied substantially across years, with a pronounced decline from 2016 (787.7 mm) to 2023 (478.5 mm), reflecting a general drying trend in more recent years. This drop is especially significant when compared with the relatively stable 30-year precipitation average, suggesting recent years were much drier than the long-term climate baseline—potentially influencing seeding behavior as captured in Hypothesis 1.
+
+For GDD, the in-season averages also show year-to-year fluctuations, ranging from a high of 2000.5 in 2016 to a low of 1653.9 in 2022. While the 30-year GDD average remains comparatively stable, the 5-year GDD average tends to move closer to in-season values, reflecting shifting short-term climate patterns. This variability in accumulated heat could affect both crop development and farmers' expectations.
+
+EDD shows a non-monotonic pattern, with 2022 exhibiting the highest average (140.8) and 2020 the lowest (69.1). The fluctuation in EDD, which captures the frequency of heat extremes, may have implications for how farmers perceive production risks and adjust seeding rates in response to temperature volatility.
+
+Overall, the observed trends in weather variables—particularly the divergence between recent short-term averages and long-term historical baselines—underscore the relevance of climate signals in shaping input decisions, a central focus of the empirical models tested in this study.
+
+# Results
+
+
+
+```{r tbl-result_year, tbl.cap= "Analysis Results Table By Year"  }
+
+# Comparison of EOSR, SQSR ( S and Profit)
+
+result_table1 <- dat_result[, .(
+  field_count = .N,  # Count the number of rows for each resp_type
+  delta_sqsr = sprintf("%.1f\n(%.1f)", round(mean(delta_sqsr), 1), round(sd(delta_sqsr), 1)),
+  delta_p_sqsr = sprintf("%.1f\n(%.1f)", round(mean(delta_p_sqsr ), 1), round(sd(delta_p_sqsr), 1)),
+   delta_prcp = sprintf("%.1f\n(%.1f)", round(mean(delta_prcp), 1), round(sd(delta_prcp), 1)),
+  delta_gdd = sprintf("%.1f\n(%.1f)", round(mean(delta_gdd ), 1), round(sd(delta_gdd ), 1)),delta_edd = sprintf("%.1f\n(%.1f)", round(mean(delta_edd ), 1), round(sd(delta_edd ), 1)),
+  delta_price_ratio = sprintf("%.1f\n(%.1f)", round(mean( delta_price_ratio), 1), round(sd( delta_price_ratio), 1))
+), by = year]
+
+setorder(result_table1, year)
+
+result_flex_tab1 <- flextable(result_table1) %>%
+  set_header_labels(
+    year = "Year",
+    field_count = "Field\nCount",
+    delta_sqsr = "\u0394Seeding \n(K/ac)",
+    delta_p_sqsr = "\u0394Profit \n($/ac)",
+    delta_prcp = "\u0394Precipitation \n(30yr - 5yr)",
+    delta_gdd = "\u0394GDD \n(30yr - 5yr)",
+    delta_edd = "\u0394EDD \n(30yr - 5yr)",
+    delta_price_ratio = "\u0394Price \n(5yr - 1yr)"
+  ) %>%
+  align(align = "center", part = "all") %>%
+  fontsize(size = 9, part = "body") %>%  # Slightly larger table font
+  fontsize(size = 9, part = "header") %>%
+  padding(padding = 2, part = "all") %>%
+  width(j = 1:2, width = 0.4) %>%
+  width(j = 3:4, width = 0.7) %>%
+  width(j = 5, width = 0.9) %>%
+  width(j = 6:8, width = 0.8) %>%
+  set_table_properties(layout = "fixed", width = 0.9) %>%
+  footnote(i = 1, j = 3, part = "header",
+           value = as_paragraph("Average deviation between SQSR and EOSR, in thousands of seeds per acre (K/ac)"),
+           ref_symbols = "a") %>%
+  footnote(i = 1, j = 4, part = "header",
+           value = as_paragraph("Difference in estimated per-acre profit between SQSR and EOSR ($/ac)"),
+           ref_symbols = "b") %>%
+  footnote(i = 1, j = 5, part = "header",
+           value = as_paragraph("Change in in-season precipitation: 30-year avg minus 5-year avg (inches)"),
+           ref_symbols = "c") %>%
+  footnote(i = 1, j = 6, part = "header",
+           value = as_paragraph("Change in growing degree days (GDD): 30-year avg minus 5-year avg"),
+           ref_symbols = "d") %>%
+  footnote(i = 1, j = 7, part = "header",
+           value = as_paragraph("Change in extreme degree days (EDD): 30-year avg minus 5-year avg"),
+           ref_symbols = "e") %>%
+  footnote(i = 1, j = 8, part = "header",
+           value = as_paragraph("Change in price ratio: 5-year avg minus last year's value"),
+           ref_symbols = "f") %>%
+  style(pr_t = fp_text(font.size = 9), part = "footer")  # Apply smaller font size to footnotes
+
+result_flex_tab1
+
+```
+
+@tbl-result_year summarizes the average differences between farmers' chosen seeding rates (SQSR) and the economically optimal seeding rates (EOSR) at the field level, as well as the associated estimated profit differences, across each year from 2016 to 2023. These differences are denoted as $\Delta Seeding$ and $\Delta Profit$ in columns three and four, respectively. Across all years, the $\Delta Seeding$ values are positive, indicating consistent over-seeding behavior by farmers. The magnitude of over-seeding ranges from approximately 0.8 to 7.8 thousand seeds per acre, with the highest average over-seeding observed in 2020 and 2016, and the lowest in 2018.
+
+The estimated profit differences ($\Delta Profit$) are consistently negative across all years, reinforcing that over-seeding is not only widespread but also economically inefficient. On average, farmers experienced a loss ranging from approximately 8 to 42 dollars per acre when applying SQSR instead of EOSR. The largest losses are observed in 2021 ($ -42 /ac$) and 2020 ($-21.1 /ac$), while smaller losses appear in years like 2018 ($-8.3 /ac$).
+
+When comparing these results across years, we observe some rough patterns between the magnitude of $\Delta Seeding$ and $\Delta Profit$ and the weather and price deviation variables in columns five through nine. For instance, in 2016 and 2019—both years with high precipitation deviations ($\Delta Precipitation = 62.7$ and $69.4$)—$\Delta Seeding$ is relatively large ($7.6$ and $6.0$ K/ac), and the corresponding profit losses are substantial ($-20.4 /ac$ and $-13.4 /ac$), suggesting that drier recent years may have contributed to over-seeding. Similarly, in 2020, which shows a large positive deviation in growing degree days (GDD), indicating warmer conditions, $\Delta Seeding$ peaks at $7.8$ K/ac with a high profit loss of $-21.1 /ac$. In contrast, years like 2018 and 2023 exhibit more moderate or even negative deviations in climate variables and correspondingly show smaller $\Delta Seeding$ and $\Delta Profit$ values.
+
+Although these associations are not consistent or definitive year-to-year, they suggest potential behavioral responses by farmers to recent weather anomalies. However, due to the aggregation at the annual level and the potential confounding between variables, these descriptive trends are only preliminary. The next sections investigate these relationships in greater detail using field-level regression models that more rigorously test the hypothesized connections between climate signals, yield variability, price ratios, and farmers' seeding behavior.
+
+
+```{r fig-ridge_graph, fig.cap= "EOSR,SQSR and USDAR in the variable Seeding trial Range" ,fig.height = 20, fig.width=24, out.width="100%" }
+
+# Filter only for years 2022 and 2023
+dat_inner_sol <- dat_result[eosr != s_min & eosr != s_max]
+
+# Add seeding_case label
+dat_inner_sol[, seeding_case := fcase(
+  eosr > sqsr, "Under-seeding",
+  eosr < sqsr, "Over-seeding",
+  eosr == sqsr, "Opt-seeding"
+)]
+
+# Keep only under and over
+dat_inner_sol <- dat_inner_sol[seeding_case %in% c("Under-seeding", "Over-seeding")]
+
+# Take 10 from each case
+under_10 <- dat_inner_sol[seeding_case == "Under-seeding"][1:10]
+over_10  <- dat_inner_sol[seeding_case == "Over-seeding"][1:10]
+
+# Combine
+# Combine
+dat_plot <- rbindlist(list(under_10, over_10))
+
+# Ordered factor for plotting
+dat_plot[, ffy_id_ordered := factor(ffy_id, levels = unique(ffy_id))]# Set plot order (can be by year, s_min, or anything else)
+
+dat_plot[, seeding_case := factor(seeding_case, levels = c("Under-seeding", "Over-seeding"))]
+
+# Reshape point values to long format for unified point legend
+point_long <- melt(dat_plot, 
+                   id.vars = c("ffy_id_ordered", "seeding_case"), 
+                   measure.vars = c("eosr", "ymsr", "sqsr"),
+                   variable.name = "point_type", 
+                   value.name = "s_rate_value")
+
+# Plot
+range_of_s <- ggplot() +
+  # --- Error bars: seeding_case controls color ---
+  geom_errorbarh(
+    data = dat_plot, 
+    aes(y = ffy_id_ordered, xmin = s_min, xmax = s_max, color = seeding_case),
+    height = 0.3, size = 0.6, show.legend = FALSE
+  ) +
+
+  # --- Points: point_type controls shape and fill ---
+  geom_point(
+    data = point_long, 
+    aes(x = s_rate_value, y = ffy_id_ordered, shape = point_type, fill = point_type),
+    color = "black", size = 6, alpha=0.6,show.legend = TRUE
+  ) +
+
+  # --- Manual fill and shape for point_type ---
+  scale_fill_manual(
+    name = "Point Type",
+    values = c(
+      "eosr" = "green",  
+      "sqsr" = "purple", 
+      "ymsr" = "red"
+    )
+  ) +
+  scale_shape_manual(
+    name = "Point Type",
+    values = c(
+      "eosr" = 21,  # circle
+      "sqsr" = 22,  # square
+      "ymsr" = 24   # triangle
+    )
+  ) +
+  labs(
+    title = "Seeding Rate Range Under-Seeding (top 10) \n  and  Over Seeding (bottom 10) Cases)",
+    x = "Seeding Rate Range (K/ac)",
+    y = "Field ID (farm_field_year) "
+  ) +
+  theme_minimal(base_size = 28) +
+  theme(
+    plot.title = element_text(size = 40, face = "bold"),
+    axis.title.x = element_text(size = 32),
+    axis.title.y = element_text(size = 32),
+    axis.text.x = element_text(size = 32),
+    axis.text.y = element_text(size = 32),
+    legend.title = element_text(size = 36),
+    legend.text = element_text(size = 32),
+    legend.position = "bottom",
+    legend.box = "vertical"  # stack the legends one on top of the other
+  ) + guides(color = "none")
+
+
+range_of_s
+
+```
+
+@fig-ridge_graph presents the distribution of seeding rate decisions for a selected group of trials where the Economically Optimal Seeding Rate (EOSR) lies within the interior range of experimentally applied seed rates. From the total of 97 trials, only 39 trials yielded EOSR values that are not at the boundary of the experimental design. These are referred to as non-corner solutions, meaning the estimated EOSR is located strictly between the minimum and maximum of the field's trial seed rates. This distinction is important, as only these trials allow for a more precise estimation of the yield-seeding response and economic optimality.
+
+Among these 39 non-corner cases, 29 fields exhibited over-seeding behavior, where the farmer’s chosen Status Quo Seeding Rate (SQSR) was greater than the EOSR. The remaining 10 fields showed under-seeding behavior, where SQSR was lower than the EOSR. For visualization purposes, the figure includes all 10 under-seeding cases and 10 randomly selected over-seeding cases from the available 29. Each row corresponds to one field-year observation, labeled by Field ID on the vertical axis.
+
+In each row, the horizontal line represents the full range of seeding rates tested in the trial. Three key seeding rate points are marked within this range: the green dot represents the EOSR, the purple square indicates the SQSR, and the red triangle shows the Yield-Maximizing Seeding Rate (YMSR), which is the point at which the biological yield peaks without regard to cost. The color of the horizontal line reflects whether the trial belongs to the over-seeding group (orange) or the under-seeding group (blue).
+
+@fig-ridge_graph demonstrates distinct patterns across seeding behavior types. In over-seeding cases, the SQSR is frequently positioned to the right of both EOSR and YMSR, suggesting that farmers are applying seed rates beyond both economic and biological optima. This behavior implies unnecessary input costs and potential reductions in profit. In under-seeding cases, the SQSR typically falls to the left of the EOSR and sometimes to the left of the YMSR as well, suggesting a conservative seeding strategy that may limit yield potential. These patterns support the hypothesis that farmer seeding decisions deviate systematically from the economically optimal rate, depending on their expectations, risk perception, and cost considerations.
+
+
+
+```{r tbl-hypo1, tbl.cap= "How a farmer's seeding behavior is associated with long term and short term weather variation"}
+
+# Hypothesis1. 
+
+# Run quantile regression for delta_sqsr
+
+# Define quantiles to estimate
+quantiles <- c(0, 0.2, 0.4,0.6, 0.8, 1)
+
+# Identify quantiles where delta_sqsr transitions from negative to positive
+quantile_values <- quantile(dat_result$delta_sqsr, probs = c(0,0.2, 0.4, 0.6, 0.8, 1))
+
+# Display quantile values and count observations per quantile
+quantile_ranges <- cut(dat_result$delta_sqsr, breaks = quantile_values, include.lowest = TRUE)
+
+# Define relevant quantiles based on transition points
+
+# Run quantile regression for Hypothesis 1
+qr_h1 <- rq(delta_sqsr ~ delta_prcp + delta_gdd + delta_edd, tau = c(0.2, 0.4, 0.6, 0.8), data = dat_result)
+
+# Run quantile regression with bootstrap standard errors
+qr_h1_sum <- summary(qr_h1, se = "boot")
+
+# Extract and format results
+qr_h1_df <- map2_dfr(qr_h1_sum, c(0.2, 0.4, 0.6, 0.8), ~{
+  as.data.frame(.x$coefficients) %>%
+    mutate(
+      Variable = rownames(.),
+      Tau = .y
+    ) %>%
+    rename(
+      Estimate = Value,
+      Std_Error = `Std. Error`,
+      P_value = `Pr(>|t|)`
+    ) %>%
+    mutate(
+      Combined = sprintf("%.2f\n(%.2f)\n%.2f", Estimate, Std_Error, P_value)
+    ) %>%
+    dplyr::select(Variable, Tau, Combined)
+})
+
+# Rename variables with delta notation
+qr_h1_df$Variable <- recode(qr_h1_df$Variable,
+  "(Intercept)" = "Intercept",
+  "delta_prcp"  = "\u0394 Precipitation \n (30y & 5y)",
+  "delta_gdd"   = "\u0394 GDD \n (30y & 5y)", 
+  "delta_edd"   = "\u0394 EDD \n (30y & 5y)"
+)
+
+# Pivot wider: columns are tau levels
+qr_h1_wide <- qr_h1_df %>%
+  pivot_wider(names_from = Tau, values_from = Combined,
+              names_glue = "τ = {.name}")
+
+# Create flextable
+qr_h1_flex_stacked <- flextable(qr_h1_wide) %>%
+  set_header_labels(
+    Variable = "Variable",
+    `τ = 0.2` = "τ = 0.2",
+    `τ = 0.4` = "τ = 0.4",
+    `τ = 0.6` = "τ = 0.6",
+    `τ = 0.8` = "τ = 0.8"
+  ) %>%
+   fontsize(size = 10, part = "all") %>%
+  align(align = "center", part = "all") %>%
+  autofit() %>%
+  add_footer_lines(
+    values = as_paragraph("† Each cell in column two to five shows Estimate,(Standard Error), and p-value below."),
+    top = FALSE
+  ) %>%
+  fontsize(i = nrow_part(., "footer"), size = 10, part = "footer")
+
+
+qr_h1_flex_stacked
+
+```
+
+
+The quantile regression results reported in @tbl-hypo1 show how the estimated deviation between the farmer’s seeding rate and the economically optimal seeding rate ($\Delta S$) responds to variations in recent precipitation, accumulated growing degree days (GDD), and extreme degree days (EDD) across different quantiles of the $\Delta S$ distribution.
+
+At lower quantiles ($\tau = 0.2$), none of the predictors are statistically significant, indicating that for farmers who are under-seeding the most (where $\Delta S < 0$), weather variables do not systematically explain their behavior. However, beginning at the median quantile ($\tau = 0.4$), EDD becomes marginally significant at the 10% level ($p = 0.08$), suggesting that higher recent occurrences of extreme heat may lead to greater over-seeding among moderately deviating farmers.
+
+At the 60th percentile ($\tau = 0.6$), both EDD and precipitation trends emerge as statistically significant predictors. A one-unit increase in in-season precipitation anomaly (relative to the 5-year average) is associated with a 0.037 increase in $\Delta S$, and a similar increase in EDD raises $\Delta S$ by 0.204. This implies that, on average, farmers over-seed more in fields where recent weather conditions were wetter or hotter than usual.
+
+These patterns become more pronounced at the 80th percentile ($\tau = 0.8$), where all three weather variables are statistically significant at the 5% level. Specifically, higher precipitation anomalies and EDDs are both associated with increased over-seeding, while higher GDD anomalies are negatively associated with $\Delta S$. This finding indicates that for farmers who apply seeding rates furthest above EOSR, short-term deviations from long-run climate norms—particularly extreme heat and rainfall—may significantly influence their seeding decisions.
+
+Overall, the quantile regression results confirm that the relationship between weather expectations and seeding deviations is heterogeneous across the distribution of farmer behavior. These insights support Hypothesis 1, particularly in explaining over-seeding patterns among the upper quantiles of $\Delta S$.
+
+
+```{r tbl-hypo2, tbl.cap=  "How a farmer's seeding behavior is associated with yield volitility (risk)by seeding reate"}
+
+#| label: tbl-hypo2
+#| tbl-cap: "How a farmer's seeding behavior is associated with yield volitility (risk)by seeding reate"
+
+# Loop through each row of dat_result
+for (i in 1:nrow(dat_result)) {
+    ffy_id_sel  <- dat_result$ffy_id[i]
+    
+    # Load eval_tb for the selected field
+    eval_tb <- readRDS(here("Data", "processed", "Analysis_results", paste0(ffy_id_sel, "_eval_tb.rds")))
+    eval_tb <- eval_tb[, .(s_rate, yield_hat)]
+    
+    # Assign seeding rate quantiles within each field
+    eval_tb[, s_rate_quantile := cut(s_rate, 
+                                     breaks = quantile(s_rate, probs = c(0,0.2,0.4,0.6,0.8,1), na.rm = TRUE), 
+                                     include.lowest = TRUE)]
+    
+    # Compute yield variance within each quantile
+    yield_variance_quantiles <- eval_tb[, .(var_y_q1 = var(yield_hat[s_rate_quantile == levels(s_rate_quantile)[1]], na.rm = TRUE),
+                                            var_y_q2 = var(yield_hat[s_rate_quantile == levels(s_rate_quantile)[2]], na.rm = TRUE),
+                                            var_y_q3 = var(yield_hat[s_rate_quantile == levels(s_rate_quantile)[3]], na.rm = TRUE),
+                                            var_y_q4 = var(yield_hat[s_rate_quantile == levels(s_rate_quantile)[4]], na.rm = TRUE),
+                                            var_y_q5 = var(yield_hat[s_rate_quantile == levels(s_rate_quantile)[5]], na.rm = TRUE))]
+    
+    # Update dat_result with yield variance quantiles for the current field
+    dat_result[ffy_id == ffy_id_sel, `:=` (var_y_q1 = yield_variance_quantiles$var_y_q1,
+                                          var_y_q2 = yield_variance_quantiles$var_y_q2,
+                                          var_y_q3 = yield_variance_quantiles$var_y_q3,
+                                          var_y_q4 = yield_variance_quantiles$var_y_q4,
+                                          var_y_q5 = yield_variance_quantiles$var_y_q5)]
+}
+
+
+
+# Check correlation between variance variables
+cor_matrix <- cor(dat_result[, .(var_y_q1, var_y_q2, var_y_q3, var_y_q4, var_y_q5)], use = "complete.obs")
+
+# Apply PCA since the multicorrelation is relatively high
+  
+    pca_vars <- prcomp(dat_result[, .(var_y_q1, var_y_q2, var_y_q3, var_y_q4, var_y_q5)], scale. = TRUE)
+    
+    dat_result[, c("pc1", "pc2")] <- as.data.table(pca_vars$x[, 1:2])
+    
+    # Run regression using principal components
+    # modeling delta_sqsr (farmer’s seeding deviation) as a function of
+    # pc1: overall variance level across seed rate quantiles.
+    # pc2: shape (curvature) of the variance curve.
+    qr_h2 <- rq(delta_sqsr ~ pc1 + pc2, tau = c(0.2,0.4,0.6,0.8), data = dat_result)
+
+# summary(qr_h2)
+
+qr_h2_sum <- summary(qr_h2, se = "boot")
+
+
+# Extract and tidy results
+qr_h2_df <- purrr::map2_dfr(qr_h2_sum, c(0.2, 0.4, 0.6, 0.8), ~{
+  as.data.frame(.x$coefficients) %>%
+    mutate(
+      Variable = rownames(.),
+      Tau = .y
+    ) %>%
+    rename(
+      Estimate = Value,
+      Std_Error = `Std. Error`,
+      P_value = `Pr(>|t|)`
+    ) %>%
+    dplyr::select(Tau, Variable, Estimate, Std_Error, P_value)
+})
+
+# Recode variable names
+qr_h2_df$Variable <- recode(qr_h2_df$Variable,
+  "(Intercept)" = "Intercept",
+  "pc1" = "PC1 (Variance Level)",
+  "pc2" = "PC2 (Variance Curvature)"
+)
+
+# Format: Estimate (SE)\n p-value
+qr_h2_df <- qr_h2_df %>%
+  mutate(
+    Estimate_Formatted = sprintf("%.2f\n(%.2f)\n%.2f", round(Estimate, 2), round(Std_Error, 2), round(P_value, 2))
+  ) %>%
+  dplyr::select(Variable, Tau, Estimate_Formatted)
+
+# Reshape to wide format
+qr_h2_wide <- tidyr::pivot_wider(qr_h2_df, names_from = Tau, values_from = Estimate_Formatted)
+
+# Create flextable with real τ symbol in column names
+qr_h2_flex <- flextable(qr_h2_wide) %>%
+  set_header_labels(
+    Variable = "Variable",
+    `0.2` = "τ = 0.2",
+    `0.4` = "τ = 0.4",
+    `0.6` = "τ = 0.6",
+    `0.8` = "τ = 0.8"
+  ) %>%
+  align(align = "center", part = "all") %>%
+  fontsize(size = 10, part = "all") %>%
+  add_footer_lines("Each cell in column two to five reports  Estimate (Standard Error) and p-value below.") %>%
+  fontsize(size = 10, part = "footer") %>%
+  autofit()
+
+qr_h2_flex
+
+
+```
+
+
+@tbl-hypo2 presents the quantile regression results examining whether within-field yield variability, summarized via the first two principal components (PC1 and PC2), is systematically associated with farmers’ deviation from economically optimal seeding rates ($\Delta S$). Each row in the table corresponds to a model estimated at a different quantile $\tau$ of the $\Delta S$ distribution (0.2, 0.4, 0.6, 0.8). Each cell reports the point estimate, followed by the bootstrapped standard error in parentheses, and the p-value below.
+
+The coefficient on PC2 is consistently negative and statistically significant across all quantiles, with p-values below 0.01 in most cases. This suggests that greater curvature in the yield variance across seeding rate quantiles — which indicates changing yield volatility along the seeding gradient — is associated with reduced over-seeding. In other words, farmers appear more conservative in their seeding decisions when yield risk varies substantially across the input space.
+
+In contrast, PC1, which captures the overall level of variance, shows weaker and less consistent effects. Its estimates are positive at all quantiles, but not statistically significant at conventional levels. This implies that farmers are less responsive to general yield variability and more reactive to how that variability shifts with seeding rate.
+
+The intercept increases across quantiles, reflecting that over-seeding ($\Delta S > 0$) becomes more common and more pronounced at higher levels of the distribution, consistent with the broader pattern observed in earlier summary statistics and plots.
+
+Together, these results provide partial support for Hypothesis 2: farmers' seeding behavior is related to risk patterns in yield, especially when those risks differ across the seeding spectrum.
+
+
+
+```{r tbl-hypo3, tbl.cap= "How a farmer's seeding behavior is associated with the recent input and output price ratio changes" }
+
+
+# Run quantile regression for Hypothesis 3
+qr_h3 <- rq(delta_sqsr ~ delta_price_ratio, tau = c(0.2, 0.4, 0.6, 0.8), data = dat_result)
+
+# Get summary with bootstrapped SE
+qr_h3_sum <- summary(qr_h3, se = "boot")
+
+# Extract and format results
+qr_h3_df <- map2_dfr(qr_h3_sum, c(0.2, 0.4, 0.6, 0.8), ~{
+  as.data.frame(.x$coefficients) %>%
+    mutate(
+      Variable = rownames(.),
+      tau = .y
+    ) %>%
+    rename(
+      Estimate = Value,
+      Std_Error = `Std. Error`,
+      P_value = `Pr(>|t|)`
+    ) %>%
+    dplyr::select(tau, Variable, Estimate, Std_Error, P_value)
+})
+
+# Format: Estimate\n(SE)\np-value
+qr_h3_df <- qr_h3_df %>%
+  mutate(
+    Estimate_Stacked = sprintf("%.2f\n(%.2f)\n%.2f", Estimate, Std_Error, P_value),
+    Variable = recode(Variable,
+      "(Intercept)" = "Intercept",
+      "delta_price_ratio" = "\u0394 Price Ratio"
+    )
+  ) %>%
+  dplyr::select(Variable, tau, Estimate_Stacked)
+
+# Pivot wider: each tau is a column
+qr_h3_wide <- tidyr::pivot_wider(
+  qr_h3_df,
+  names_from = tau,
+  values_from = Estimate_Stacked,
+  names_prefix = "\u03C4 = "
+)
+
+# Make flextable
+qr_h3_flex <- flextable(qr_h3_wide) %>%
+  set_header_labels(
+    Variable = "Variable"
+  ) %>%
+  add_footer_lines("Each cell in column two to five reports  Estimate (Standard Error) and p-value below.") %>%
+  fontsize(size = 10, part = "body") %>%
+  fontsize(size = 10, part = "footer") %>%
+  align(align = "center", part = "all") %>%
+  autofit()
+
+# Display flextable
+qr_h3_flex
+
+
+```
+
+The results in @tbl-hypo3 summarize the estimated relationship between the change in seed-to-crop price ratio and farmers' deviation from the economically optimal seeding rate ($\Delta S$), using quantile regression across four quantiles ($\tau = 0.2$, $0.4$, $0.6$, $0.8$). Across all quantiles, the estimated coefficient on $\Delta Price Ratio$ is not statistically significant at the 5% level.
+
+At $\tau = 0.2$, the estimate is -1.27 with a standard error of 4.03 and a p-value of 0.75, suggesting no clear association between the recent price ratio changes and under-seeding behavior. At the median ($\tau = 0.4$), the coefficient becomes slightly positive (0.50) but remains insignificant with a p-value of 0.93. At higher quantiles ($\tau = 0.6$ and $\tau = 0.8$), the coefficients rise to 4.16 and 7.21 respectively, indicating a possible positive association at the upper tail of $\Delta S$ (i.e., among over-seeding farmers), but again the estimates are not statistically distinguishable from zero (p-values = 0.50 and 0.09).
+
+These results suggest that, while the magnitude of the response to $\Delta Price Ratio$ increases at higher quantiles, there is no strong evidence of a systematic behavioral adjustment to recent seed-to-crop price ratio changes in terms of seeding rate deviation. The wide confidence intervals and lack of significance imply that farmers' seeding decisions may not be responsive to recent price shifts, or that other unobserved factors dominate this relationship.
+
+
+## Conclusion
+
+This study evaluates the economic efficiency of corn farmers’ seeding decisions by comparing the profitability of their chosen seeding rates (SQSR) to the estimated economically optimal seeding rates (EOSR), using data from 97 on-farm precision experiments conducted across the U.S. Midwest between 2016 and 2023. By estimating field-specific yield-seeding response functions using Generalized Additive Models (GAMs), the analysis quantifies the potential profit loss when farmers deviate from the ex-post EOSR.
+
+The findings reveal that a substantial portion of farmers tend to apply seeding rates above the economically optimal level. On average, farmers apply about 3,800 more seeds per acre than the estimated EOSR, resulting in profit losses ranging from 18.8 to 69.3 dollars per acre depending on the shape of the response function. Among the 97 trials, EOSR was identified as a non-corner solution in 39 cases, with 29 showing over-seeding behavior and 10 showing under-seeding. These cases, where EOSR lies within the experimental range, provide the clearest insights into the behavioral implications of seeding decisions.
+
+To understand the underlying behavioral mechanisms driving the deviation between SQSR and EOSR, the study tests three hypotheses using quantile regression. The results suggest that recent deviations in weather conditions, particularly extreme heat (EDD) and accumulated heat (GDD), are significantly associated with over-seeding behavior at higher quantiles of seeding deviation. Specifically, when short-term weather trends diverge from long-term climate norms, farmers tend to increase seeding rates. Additionally, within-field yield volatility, measured using principal component analysis of yield variances across seeding quantiles, shows a strong relationship with seeding behavior. Farmers appear to reduce seeding rates in cases where risk increases sharply with higher seed density, indicating a form of risk-averse behavior. On the other hand, the effect of recent changes in the seed-to-crop price ratio is not statistically significant across quantiles, although some suggestive patterns emerge at higher quantiles that may warrant further investigation.
+
+These results contribute to our understanding of how farmers incorporate climatic and economic information into their input decisions. They highlight the potential for economic gains through improved decision-making frameworks that reflect field-specific yield responses and evolving environmental conditions. As seed costs continue to rise and weather volatility intensifies, the ability to make adaptive and site-specific seeding decisions becomes increasingly valuable.
+
+This study also acknowledges several limitations. The estimation of EOSR assumes perfect knowledge of the yield response function and does not capture dynamic learning or uncertainty faced by farmers. The analysis also simplifies the decision context by focusing solely on seeding rates, without accounting for possible interactions with other inputs such as nitrogen. Furthermore, the OFPE data, while robust and experimentally controlled, may not be fully representative of all farming operations in the region.
+
+Despite these limitations, the study demonstrates that more precise and informed seeding decisions can reduce input waste and enhance profitability. Future research should explore how these findings can inform decision support tools, policy incentives, and educational programs aimed at helping farmers make data-driven input decisions in the face of increasing environmental and market uncertainty.
+
+
+# References {.unnumbered}
+

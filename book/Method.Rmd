@@ -1,0 +1,13 @@
+---
+title: "Method"
+bibliography: seed_refs.bib
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    code-fold: false
+execute:
+  echo: false
+  warning: false
+  message: false
+---

@@ -1,0 +1,19 @@
+# Evaluation of Seeding Decisions (2024) {-}
+
+## Background: The Efficiency Gap in Seeding {-}
+
+Achieving input efficiency remains a central challenge in modern agriculture, particularly as farmers manage the dual pressures of volatile input costs and increasingly uncertain climate patterns. [cite_start]In our previous research, we analyzed 97 on-farm precision experiments (OFPE) conducted across the U.S. Midwest between 2016 and 2023 to evaluate the economic performance of corn seeding decisions[cite: 29, 30].
+
+[cite_start]This analysis identified a systematic inefficiency: farmers consistently apply seeding rates that exceed the ex-post Economically Optimal Seeding Rate (EOSR)[cite: 31]. [cite_start]Specifically, we observed an average over-seeding of approximately 3,800 seeds per acre[cite: 159]. [cite_start]This precautionary behavior is not without cost; it resulted in an estimated profit loss of approximately $24.70 per acre, affecting nearly 40% of the trials analyzed[cite: 159, 161]. [cite_start]Further regression analysis indicated that these deviations were not random errors but were systematically driven by behavioral factors, including reactive adjustments to short-term precipitation trends and perceived yield variability[cite: 32, 161].
+
+## Limitations: The Constraints of Ex-Post Analysis {-}
+
+While this diagnostic work successfully quantified the magnitude of over-seeding, its reliance on *ex-post* evaluation limits its utility as a forward-looking decision tool. [cite_start]Calculating an optimal seeding rate after harvest implicitly assumes perfect knowledge of that season's weather and yield response—information that is unavailable to farmers at the time of planting[cite: 131].
+
+[cite_start]By defining optimality strictly through realized outcomes, the previous framework treats the deviation from the optimum as a simple error, potentially overlooking rational risk management strategies farmers employ to buffer against uncertainty[cite: 150]. [cite_start]Furthermore, focusing solely on single-year optimization fails to capture the dynamic learning process and lacks a mechanism for farmers to update their management strategies based on long-term probabilities[cite: 649].
+
+# Transition: Towards a Long-Run Decision System (2025) {-}
+
+Building on these diagnostic insights, the current research pivots toward constructing a robust, long-run decision system for seeding rates. Rather than merely critiquing past decisions based on realized weather, the objective is to leverage the multi-year, multi-field OFPE dataset to characterize the probability distribution of yield responses across diverse environments.
+
+This approach shifts the analytical focus from maximizing profit in a single "perfect" year to maximizing expected utility over the long run, accounting for the inherent risks of climate volatility and price shifts. By integrating historical field-level data with probabilistic weather scenarios, this new framework aims to provide farmers with actionable, risk-aware seeding recommendations that remain resilient across varying growing conditions.

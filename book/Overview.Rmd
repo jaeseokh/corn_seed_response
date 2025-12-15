@@ -1,0 +1,49 @@
+---
+title: "Overview"
+bibliography: seed_refs.bib
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+# Overview {-}
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  message = FALSE,
+  warning = FALSE,
+  fig.align = "center",
+  fig.width = 7,
+  fig.height = 5,
+  dpi = 300
+)
+
+library(here)
+library(dplyr)
+library(sf)
+library(ggplot2)
+
+# Note: Adjust path to your actual analysis directory if needed for map generation
+# analysis_dir <- here::here("Data", "corn", "Processed", "Analysis_ready")
+```
+
+# Motivation: Moving Beyond Hindsight {-}
+Efficient input use is a central challenge in modern agriculture, yet farmers often rely on historically established seeding rates that may not optimize profitability under volatile conditions. Previous research utilizing On-Farm Precision Experiments (OFPE) identified a systematic "efficiency gap," where farmers consistently applied seeding rates exceeding the economic optimum calculated after harvest.
+However, critiques based on ex-post (after harvest) outcomes are limited as decision-support tools. Farmers must make ex-ante planting decisions without knowing the season's weather. Optimizing for a single realized outcome overlooks the rational strategies producers use to manage risk. To address this, we need a system that moves beyond perfect hindsight and instead optimizes for long-run resilience against climate and price uncertainty.
+
+
+# Methodology: A Long-Run Decision Framework {-}
+
+This study establishes a robust, probability-based decision system for corn seeding rates. We leverage a rich dataset of 97 on-farm precision experiments conducted across the U.S. Midwest between 2016 and 2023.
+
+The approach integrates three key methodological components:
+
+Biological Realism via SCAM: We estimate field-specific yield response curves using Shape Constrained Additive Models (SCAM). Unlike standard regression, this enforces biological concavity (diminishing returns), ensuring that yield predictions remain agronomicallly plausible even at the boundaries of the data.
+Probabilistic Weather Integration: Rather than relying on a single weather year, we characterize the probability distribution of yield responses by integrating historical weather moments (mean and variance of precipitation and heat) from long-term climate records.
+Expected Utility Maximization: We shift the objective function from maximizing "perfect year" profit to maximizing Expected Utility over the long run. This accounts for the trade-offs between average profit potential and the risk of yield collapse in stress years.
+
+Results: Risk-Aware Recommendations {-}
+Initial results indicate that this long-run framework produces seeding recommendations that are distinct from both the farmers' status quo and simple ex-post optima. By explicitly modeling the probability of downside risk, the system identifies "Risk-Resilient" seeding rates.
+
+These recommendations offer a "biological call option"—maintaining yield stability during average years while preserving the potential to capture upside revenue during favorable weather conditions. The result is a decision-support tool that aligns more closely with the farmer's actual decision environment, offering strategies that are robust to the volatility of modern production agriculture.

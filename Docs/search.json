@@ -1,0 +1,86 @@
+[
+  {
+    "objectID": "Evaluate Seeding Decision(2024).html",
+    "href": "Evaluate Seeding Decision(2024).html",
+    "title": "Evaluation of Seeding Decisions (2024)",
+    "section": "",
+    "text": "Background: The Efficiency Gap in Seeding\nAchieving input efficiency remains a central challenge in modern agriculture, particularly as farmers manage the dual pressures of volatile input costs and increasingly uncertain climate patterns. [cite_start]In our previous research, we analyzed 97 on-farm precision experiments (OFPE) conducted across the U.S. Midwest between 2016 and 2023 to evaluate the economic performance of corn seeding decisions[cite: 29, 30].\n[cite_start]This analysis identified a systematic inefficiency: farmers consistently apply seeding rates that exceed the ex-post Economically Optimal Seeding Rate (EOSR)[cite: 31]. [cite_start]Specifically, we observed an average over-seeding of approximately 3,800 seeds per acre[cite: 159]. [cite_start]This precautionary behavior is not without cost; it resulted in an estimated profit loss of approximately $24.70 per acre, affecting nearly 40% of the trials analyzed[cite: 159, 161]. [cite_start]Further regression analysis indicated that these deviations were not random errors but were systematically driven by behavioral factors, including reactive adjustments to short-term precipitation trends and perceived yield variability[cite: 32, 161].",
+    "crumbs": [
+      "Evaluate Seeding Decision(2024)",
+      "Evaluation of Seeding Decisions (2024)"
+    ]
+  },
+  {
+    "objectID": "Evaluate Seeding Decision(2024).html#limitations-the-constraints-of-ex-post-analysis",
+    "href": "Evaluate Seeding Decision(2024).html#limitations-the-constraints-of-ex-post-analysis",
+    "title": "Evaluation of Seeding Decisions (2024)",
+    "section": "Limitations: The Constraints of Ex-Post Analysis",
+    "text": "Limitations: The Constraints of Ex-Post Analysis\nWhile this diagnostic work successfully quantified the magnitude of over-seeding, its reliance on ex-post evaluation limits its utility as a forward-looking decision tool. [cite_start]Calculating an optimal seeding rate after harvest implicitly assumes perfect knowledge of that season’s weather and yield response—information that is unavailable to farmers at the time of planting[cite: 131].\n[cite_start]By defining optimality strictly through realized outcomes, the previous framework treats the deviation from the optimum as a simple error, potentially overlooking rational risk management strategies farmers employ to buffer against uncertainty[cite: 150]. [cite_start]Furthermore, focusing solely on single-year optimization fails to capture the dynamic learning process and lacks a mechanism for farmers to update their management strategies based on long-term probabilities[cite: 649].",
+    "crumbs": [
+      "Evaluate Seeding Decision(2024)",
+      "Evaluation of Seeding Decisions (2024)"
+    ]
+  },
+  {
+    "objectID": "Overview.html",
+    "href": "Overview.html",
+    "title": "1  Overview",
+    "section": "",
+    "text": "Overview\n\n\nMotivation: Moving Beyond Hindsight\nEfficient input use is a central challenge in modern agriculture, yet farmers often rely on historically established seeding rates that may not optimize profitability under volatile conditions. Previous research utilizing On-Farm Precision Experiments (OFPE) identified a systematic “efficiency gap,” where farmers consistently applied seeding rates exceeding the economic optimum calculated after harvest. However, critiques based on ex-post (after harvest) outcomes are limited as decision-support tools. Farmers must make ex-ante planting decisions without knowing the season’s weather. Optimizing for a single realized outcome overlooks the rational strategies producers use to manage risk. To address this, we need a system that moves beyond perfect hindsight and instead optimizes for long-run resilience against climate and price uncertainty.\n\n\nMethodology: A Long-Run Decision Framework\nThis study establishes a robust, probability-based decision system for corn seeding rates. We leverage a rich dataset of 97 on-farm precision experiments conducted across the U.S. Midwest between 2016 and 2023.\nThe approach integrates three key methodological components:\nBiological Realism via SCAM: We estimate field-specific yield response curves using Shape Constrained Additive Models (SCAM). Unlike standard regression, this enforces biological concavity (diminishing returns), ensuring that yield predictions remain agronomicallly plausible even at the boundaries of the data. Probabilistic Weather Integration: Rather than relying on a single weather year, we characterize the probability distribution of yield responses by integrating historical weather moments (mean and variance of precipitation and heat) from long-term climate records. Expected Utility Maximization: We shift the objective function from maximizing “perfect year” profit to maximizing Expected Utility over the long run. This accounts for the trade-offs between average profit potential and the risk of yield collapse in stress years.\nResults: Risk-Aware Recommendations {-} Initial results indicate that this long-run framework produces seeding recommendations that are distinct from both the farmers’ status quo and simple ex-post optima. By explicitly modeling the probability of downside risk, the system identifies “Risk-Resilient” seeding rates.\nThese recommendations offer a “biological call option”—maintaining yield stability during average years while preserving the potential to capture upside revenue during favorable weather conditions. The result is a decision-support tool that aligns more closely with the farmer’s actual decision environment, offering strategies that are robust to the volatility of modern production agriculture.",
+    "crumbs": [
+      "Proper system of Decision (2025)",
+      "<span class='chapter-number'>1</span>  <span class='chapter-title'>Overview</span>"
+    ]
+  },
+  {
+    "objectID": "Results(under revision).html",
+    "href": "Results(under revision).html",
+    "title": "4  Results",
+    "section": "",
+    "text": "To be updated with",
+    "crumbs": [
+      "Proper system of Decision (2025)",
+      "<span class='chapter-number'>4</span>  <span class='chapter-title'>Results</span>"
+    ]
+  },
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "Proper system of corn seeding decision for grower",
+    "section": "",
+    "text": "Preface\nThis book documents the progress of a research project that began in 2022 with several hundred field-years of On-Farm Precision Experiment (OFPE) data. The initial objective was straightforward: use field-scale experimental data from multiple locations to predict yield–nitrogen response at a new, unseen field. To do this, we applied tree-based machine-learning models—primarily Random Forests and XGBoost—and evaluated their generalization using leave-one-location-out (LOLO) cross-validation. The results were clear: although these models captured within-field patterns, they provided almost no transferable information across space or years. In practice, data from one field-year offered little predictive value for another. The core reason is structural: the main covariates available in OFPE data-SSURGO1soil properties and DEM-derived2 topographic features—are static and cannot capture the dynamic interactions of soil nitrogen, soil moisture, weather, and crop physiology. This limitation motivated a fundamental shift in approach.",
+    "crumbs": [
+      "Preface"
+    ]
+  },
+  {
+    "objectID": "index.html#transition-to-a-bayesian-framework",
+    "href": "index.html#transition-to-a-bayesian-framework",
+    "title": "Proper system of corn seeding decision for grower",
+    "section": "Transition to a Bayesian Framework",
+    "text": "Transition to a Bayesian Framework\nBy 2025, the project evolved from a purely empirical ML framework into a Bayesian system that integrates mechanistic crop simulations with field observations. Rather than asking whether multi-field data alone can predict yield–N responses, the central question became: How can the APSIM3 generate scientifically grounded prior yield–N distributions for a region, and how can OFPE trials update these priors to produce field-specific posterior responses?",
+    "crumbs": [
+      "Preface"
+    ]
+  },
+  {
+    "objectID": "index.html#contents",
+    "href": "index.html#contents",
+    "title": "Proper system of corn seeding decision for grower",
+    "section": "Contents",
+    "text": "Contents\nThis book reflects that progression.\nThe chapter Tree Ensemble Prediction (2022) revisits the original tree-model analysis and its limitations.\nThe chapter Bayesian–Hierarchical Analysis (2025) develops the Bayesian–APSIM framework, showing how mechanistic priors and OFPE field trials can be combined to produce uncertainty-aware and biologically interpretable yield–N distributions.",
+    "crumbs": [
+      "Preface"
+    ]
+  },
+  {
+    "objectID": "index.html#footnotes",
+    "href": "index.html#footnotes",
+    "title": "Proper system of corn seeding decision for grower",
+    "section": "",
+    "text": "Soil Survey Geographic Database (USDA NRCS)↩︎\nDigital Elevation Model using LiDAR↩︎\nAgricultural Production Systems sIMulator↩︎",
+    "crumbs": [
+      "Preface"
+    ]
+  }
+]
