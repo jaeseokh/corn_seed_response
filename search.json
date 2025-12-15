@@ -46,7 +46,7 @@
   {
     "objectID": "index.html",
     "href": "index.html",
-    "title": "Proper system of corn seeding decision for grower",
+    "title": "Producer’s Input Decision System under Risk",
     "section": "",
     "text": "Preface\nThis book documents the progress of a research project that began in 2022 with several hundred field-years of On-Farm Precision Experiment (OFPE) data. The initial objective was straightforward: use field-scale experimental data from multiple locations to predict yield–nitrogen response at a new, unseen field. To do this, we applied tree-based machine-learning models—primarily Random Forests and XGBoost—and evaluated their generalization using leave-one-location-out (LOLO) cross-validation. The results were clear: although these models captured within-field patterns, they provided almost no transferable information across space or years. In practice, data from one field-year offered little predictive value for another. The core reason is structural: the main covariates available in OFPE data-SSURGO1soil properties and DEM-derived2 topographic features—are static and cannot capture the dynamic interactions of soil nitrogen, soil moisture, weather, and crop physiology. This limitation motivated a fundamental shift in approach.",
     "crumbs": [
@@ -56,7 +56,7 @@
   {
     "objectID": "index.html#transition-to-a-bayesian-framework",
     "href": "index.html#transition-to-a-bayesian-framework",
-    "title": "Proper system of corn seeding decision for grower",
+    "title": "Producer’s Input Decision System under Risk",
     "section": "Transition to a Bayesian Framework",
     "text": "Transition to a Bayesian Framework\nBy 2025, the project evolved from a purely empirical ML framework into a Bayesian system that integrates mechanistic crop simulations with field observations. Rather than asking whether multi-field data alone can predict yield–N responses, the central question became: How can the APSIM3 generate scientifically grounded prior yield–N distributions for a region, and how can OFPE trials update these priors to produce field-specific posterior responses?",
     "crumbs": [
@@ -66,7 +66,7 @@
   {
     "objectID": "index.html#contents",
     "href": "index.html#contents",
-    "title": "Proper system of corn seeding decision for grower",
+    "title": "Producer’s Input Decision System under Risk",
     "section": "Contents",
     "text": "Contents\nThis book reflects that progression.\nThe chapter Tree Ensemble Prediction (2022) revisits the original tree-model analysis and its limitations.\nThe chapter Bayesian–Hierarchical Analysis (2025) develops the Bayesian–APSIM framework, showing how mechanistic priors and OFPE field trials can be combined to produce uncertainty-aware and biologically interpretable yield–N distributions.",
     "crumbs": [
@@ -76,7 +76,7 @@
   {
     "objectID": "index.html#footnotes",
     "href": "index.html#footnotes",
-    "title": "Proper system of corn seeding decision for grower",
+    "title": "Producer’s Input Decision System under Risk",
     "section": "",
     "text": "Soil Survey Geographic Database (USDA NRCS)↩︎\nDigital Elevation Model using LiDAR↩︎\nAgricultural Production Systems sIMulator↩︎",
     "crumbs": [
