@@ -4,6 +4,7 @@
 .Ruserdata
 Data/*
 Code/Main/Anonymize_Naming.RMD
+Code/sandbox/Main(2024)/Anonymize_Naming.RMD
 Results/*
 Writing/*
 Renv/*
