@@ -1,13 +1,15 @@
 # Preface {-}
 
+## Transition to a Systematic Decision Framework {-}
 
+By 2025, the scope of this research evolved from a diagnostic evaluation of past efficiency into a forward-looking decision support system. Initially, the project focused on an *ex-post* critique: did farmers plant the "right" number of seeds given the weather that actually occurred? While this revealed a systematic "over-seeding" gap, it offered limited utility for farmers who must make *ex-ante* decisions under uncertainty.
 
-## Transition to a Systematic Decision  Framework {-}
-
-By 2025, the project evolved from a purely empirical ML framework into a Bayesian system that integrates mechanistic crop simulations with field observations. Rather than asking whether multi-field data alone can predict yield–N responses, the central question became: **How can the APSIM^[Agricultural Production Systems sIMulator] generate scientifically grounded prior yield–N distributions for a region, and how can OFPE trials update these priors to produce field-specific posterior responses?**
+The central research question has therefore shifted: **How can we move beyond perfect hindsight to define a "Risk-Resilient" seeding rate that maximizes long-run expected utility against the volatility of climate and price shocks?**
 
 ## Contents {-}
 
-This book reflects that progression.  
-The chapter *Tree Ensemble Prediction (2022)* revisits the original tree-model analysis and its limitations.  
-The chapter *Bayesian–Hierarchical Analysis (2025)* develops the Bayesian–APSIM framework, showing how mechanistic priors and OFPE field trials can be combined to produce uncertainty-aware and biologically interpretable yield–N distributions.
+This book reflects that methodological progression:
+
+* **Evaluation of Seeding Decisions (2024)** This section revisits the initial analysis of 97 OFPE trials, documenting the systematic "efficiency gap" between farmers' status quo seeding rates and the economic optimum calculated after harvest. It identifies the behavioral drivers—such as reactions to short-term precipitation trends—that lead to precautionary over-seeding.
+
+* **Long-Run Decision System (2025)** This section develops the new probabilistic framework. It demonstrates how **Shape Constrained Additive Models (SCAM)** and **historical weather moments** are integrated to characterize the full probability distribution of yield responses. The result is a robust decision system that values the "biological option value" of seeding rates, offering recommendations optimized for long-term resilience rather than single-year profit.
